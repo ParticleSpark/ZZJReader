@@ -1,0 +1,370 @@
+import { Button } from "@reader/ui/components/button";
+import { copyText } from "./clipboard";
+import { Copy } from "lucide-react";
+import { CachedMarkdown, Streamdown } from "@lobehub/streamdown";
+import {
+  memo,
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  useContext,
+  type ReactNode,
+  type ComponentProps,
+} from "react";
+import type { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import { api } from "@reader/api";
+import { ErrorBoundary } from "../ErrorBoundary";
+import remend from "remend";
+import { marked } from "marked";
+import {
+  ReadingLinkNavigation,
+  openExternalLink,
+  remarkReadingCitations,
+} from "../reading-links";
+import "./markdown.css";
+
+const Code = lazy(() => import("./CodeBlock"));
+const MathFormula = lazy(() => import("./MathFormula"));
+const plugins = [remarkGfm, remarkMath];
+export const safeMarkdownURL = (url: string) =>
+  /^(https?:\/\/|mailto:|#)/i.test(url)
+    ? url.replace(/(?:[。，；！？]|%E3%80%82|%EF%BC%8C)+$/gi, "")
+    : "";
+const noteImageReference = (url?: string) =>
+  url?.match(/^note-image:([0-9a-f]{32}\.(?:png|jpe?g|gif|webp))$/)?.[1] ?? "";
+function NoteImage({
+  documentId,
+  src,
+  alt,
+}: {
+  documentId: string;
+  src?: string;
+  alt?: string;
+}) {
+  const name = noteImageReference(src);
+  const [url, setUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!name) return;
+    let alive = true;
+    let objectURL = "";
+    api
+      .noteImage(documentId, name)
+      .then((blob) => {
+        if (!alive) return;
+        objectURL = URL.createObjectURL(blob);
+        setUrl(objectURL);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+      if (objectURL) URL.revokeObjectURL(objectURL);
+    };
+  }, [documentId, name]);
+  if (!name || failed)
+    return <span className="markdown-image">[图片：{alt || "未加载"}]</span>;
+  if (!url) return <span className="markdown-image">图片加载中…</span>;
+  return <img className="note-image" src={url} alt={alt || ""} />;
+}
+function MarkdownLink({
+  href,
+  children,
+}: {
+  href?: string;
+  children?: ReactNode;
+}) {
+  const navigate = useContext(ReadingLinkNavigation);
+  if (href?.startsWith("#"))
+    return (
+      <a
+        href={href}
+        onClick={(event) => {
+          event.preventDefault();
+          if (href.startsWith("#reader-citation?")) {
+            const params = new URLSearchParams(
+              href.slice(href.indexOf("?") + 1),
+            );
+            navigate?.(params.get("block") ?? "", params.get("label") ?? "");
+            return;
+          }
+          const root = event.currentTarget.closest(".message-markdown");
+          const target = Array.from(root?.querySelectorAll("[id]") || []).find(
+            (element) => element.id === href.slice(1),
+          );
+          const viewport = root?.closest('[data-slot="scroll-area-viewport"]');
+          if (target && viewport)
+            viewport.scrollTop +=
+              target.getBoundingClientRect().top -
+              viewport.getBoundingClientRect().top;
+        }}
+      >
+        {children}
+      </a>
+    );
+  if (!href) return <span>{children}</span>;
+  return (
+    <span className="markdown-link">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(event) => {
+          if (/^https?:\/\//i.test(href)) {
+            event.preventDefault();
+            openExternalLink(href);
+          }
+        }}
+      >
+        {children}
+      </a>
+      {!navigate && (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          title="复制链接"
+          aria-label={`复制链接 ${href}`}
+          onClick={() => void copyText(href)}
+        >
+          <Copy className="size-3" />
+        </Button>
+      )}
+    </span>
+  );
+}
+function textContent(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textContent).join("");
+  if (node && typeof node === "object" && "props" in node)
+    return textContent((node.props as { children?: ReactNode }).children);
+  return "";
+}
+const components: Components = {
+  img: ({ alt }) => (
+    <span className="markdown-image">[图片：{alt || "未加载"}]</span>
+  ),
+  a: MarkdownLink,
+  pre: ({ children }) => <div className="markdown-pre">{children}</div>,
+  code: ({ className, children, node }) => {
+    const value = textContent(children);
+    if (
+      className?.includes("math-inline") ||
+      className?.includes("math-display")
+    ) {
+      const display = className.includes("math-display");
+      return (
+        <Suspense fallback={<code>{value}</code>}>
+          <MathFormula value={value} display={display} />
+        </Suspense>
+      );
+    }
+    // remark emits a trailing newline for fenced/indented code, including unlabelled fences.
+    const block = Boolean(
+      className?.startsWith("language-") ||
+      value.endsWith("\n") ||
+      (node?.position && node.position.start.line !== node.position.end.line),
+    );
+    return block ? (
+      <Suspense
+        fallback={
+          <pre>
+            <code>{value}</code>
+          </pre>
+        }
+      >
+        <Code
+          content={value}
+          language={className?.replace("language-", "") || "text"}
+        />
+      </Suspense>
+    ) : (
+      <code>{children}</code>
+    );
+  },
+  table: ({ children }) => (
+    <div className="markdown-table">
+      <table>{children}</table>
+    </div>
+  ),
+};
+export function useMotionPreference() {
+  const [reduced, setReduced] = useState(
+    () =>
+      typeof matchMedia !== "undefined" &&
+      matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  useEffect(() => {
+    const media = matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
+const markdownOptions = {
+  remarkPlugins: plugins,
+  components,
+  skipHtml: true,
+  urlTransform: safeMarkdownURL,
+};
+const StaticBlock = memo(function StaticBlock({
+  text,
+  citationBlockId,
+  images,
+  documentId,
+}: {
+  text: string;
+  citationBlockId?: string;
+  images?: boolean;
+  documentId?: string;
+}) {
+  const options = useMemo<
+    Pick<ComponentProps<typeof CachedMarkdown>, "remarkPlugins">
+  >(
+    () => ({
+      remarkPlugins: [
+        ...plugins,
+        [remarkReadingCitations, { blockId: citationBlockId }],
+      ],
+    }),
+    [citationBlockId],
+  );
+  const imageOptions =
+    images && documentId
+      ? {
+          components: {
+            ...components,
+            img: ({ src, alt }: { src?: string; alt?: string }) => (
+              <NoteImage documentId={documentId} src={src} alt={alt} />
+            ),
+          },
+          urlTransform: (url: string) =>
+            noteImageReference(url) ? url : safeMarkdownURL(url),
+        }
+      : {};
+  return (
+    <CachedMarkdown {...markdownOptions} {...options} {...imageOptions}>
+      {text}
+    </CachedMarkdown>
+  );
+});
+function StaticMarkdown({
+  content,
+  generating,
+  global,
+  citationBlockId,
+  images,
+  documentId,
+}: {
+  content: string;
+  generating: boolean;
+  global: boolean;
+  citationBlockId?: string;
+  images?: boolean;
+  documentId?: string;
+}) {
+  const blocks = useMemo(() => {
+    const text = generating ? remend(content) : content;
+    // Keep global definitions and math in one parser. Other long responses reuse
+    // completed groups of top-level tokens, never splitting a fence/list/table.
+    if (text.length <= 32_768 || global || text.includes("$")) return [text];
+    const result: string[] = [];
+    let group = "";
+    for (const token of marked.lexer(text)) {
+      group += token.raw;
+      if (group.length >= 8192) {
+        result.push(group);
+        group = "";
+      }
+    }
+    if (group) result.push(group);
+    return result;
+  }, [content, generating, global]);
+  return (
+    <>
+      {blocks.map((text, index) => (
+        <StaticBlock
+          key={index}
+          text={text}
+          citationBlockId={citationBlockId}
+          images={images}
+          documentId={documentId}
+        />
+      ))}
+    </>
+  );
+}
+export const MessageMarkdown = memo(function MessageMarkdown({
+  content,
+  generating = false,
+  reducedMotion = false,
+  animated = true,
+  citationBlockId,
+  images = false,
+  documentId,
+}: {
+  content: string;
+  generating?: boolean;
+  reducedMotion?: boolean;
+  animated?: boolean;
+  citationBlockId?: string;
+  images?: boolean;
+  documentId?: string;
+}) {
+  const reduced = useMotionPreference();
+  const [backgrounded, setBackgrounded] = useState(false);
+  useEffect(() => {
+    // Once backgrounded, this message stays immediate through completion: no backlog replay.
+    const change = () => {
+      if (document.hidden) setBackgrounded(true);
+    };
+    change();
+    document.addEventListener("visibilitychange", change);
+    return () => document.removeEventListener("visibilitychange", change);
+  }, []);
+  // Bound DOM animation cost. Global references use one parser throughout the stream.
+  const globalDefinitions =
+    /^ {0,3}\[(?:\^)?[^\]]+\]:/m.test(content) ||
+    /\[[^\]]+\]\[[^\]]*\]|\[\^/.test(content);
+  const animate =
+    !images &&
+    generating &&
+    animated &&
+    !reducedMotion &&
+    !reduced &&
+    !backgrounded &&
+    content.length <= 32_768 &&
+    !globalDefinitions;
+  return (
+    <div className="message-markdown" data-animated={animate}>
+      {/* A Markdown failure falls back to the raw text of this message only. */}
+      <ErrorBoundary
+        resetKey={content}
+        fallback={<div style={{ whiteSpace: "pre-wrap" }}>{content}</div>}
+      >
+        {animate ? (
+          <Streamdown
+            {...markdownOptions}
+            content={content}
+            smoothing="realtime"
+            granularity="word"
+          />
+        ) : (
+          <StaticMarkdown
+            content={content}
+            generating={generating}
+            global={globalDefinitions}
+            citationBlockId={citationBlockId}
+            images={images}
+            documentId={documentId}
+          />
+        )}
+      </ErrorBoundary>
+    </div>
+  );
+});

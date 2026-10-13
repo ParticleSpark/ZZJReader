@@ -1,0 +1,4612 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Reader Local API", "version": "0.1.0" },
+  "security": [{ "session": [] }],
+  "paths":
+    {
+      "/api/connector/status":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Connector bridge availability",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    {
+                                      "available": { "type": "boolean" },
+                                      "reason":
+                                        {
+                                          "type": "string",
+                                          "enum": ["disabled", "port-in-use"],
+                                        },
+                                    },
+                                  "required": ["available"],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/connector/revision":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Revision after connector imports",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    { "revision": { "type": "integer" } },
+                                  "required": ["revision"],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/snapshot":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Saved source snapshot availability",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    {
+                                      "available": { "type": "boolean" },
+                                      "sourceUrl": { "type": "string" },
+                                    },
+                                  "required": ["available"],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/import/zotero":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    { "directory": { "type": "string" } },
+                                  "required": ["directory"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "post":
+            {
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "scanId": { "type": "string" },
+                                  "entryId": { "type": "string" },
+                                },
+                              "required": ["scanId", "entryId"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/ZoteroImportResult",
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/import/zotero/scan":
+        {
+          "post":
+            {
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "directory": { "type": "string" },
+                                  "linkedBase": { "type": "string" },
+                                },
+                              "required": ["directory"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/ZoteroScan" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Zotero is holding a database lock; quit Zotero and retry the scan",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "required": ["error", "code"],
+                                  "properties":
+                                    {
+                                      "error": { "type": "string" },
+                                      "code":
+                                        {
+                                          "type": "string",
+                                          "const": "zotero-locked",
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    { "$ref": "#/components/schemas/Document" },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "post":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "The identical file already exists, in either library",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "201":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "multipart/form-data":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "file":
+                                    { "type": "string", "format": "binary" },
+                                  "library":
+                                    {
+                                      "enum": ["books", "papers"],
+                                      "description": "Target library. Papers accept PDFs up to 50 MB and 150 pages. Defaults to books.",
+                                    },
+                                  "allowLarge":
+                                    {
+                                      "enum": ["1"],
+                                      "description": "Confirms a paper over 50 pages. Without it such a paper fails with 409, code large-paper and its page count.",
+                                    },
+                                },
+                              "required": ["file"],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}":
+        {
+          "patch":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "category":
+                                    { "enum": ["book", "article", "paper"] },
+                                  "tags":
+                                    {
+                                      "type": "array",
+                                      "maxItems": 30,
+                                      "items":
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 40,
+                                        },
+                                    },
+                                  "folders":
+                                    {
+                                      "type": "array",
+                                      "maxItems": 30,
+                                      "items":
+                                        {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 40,
+                                        },
+                                    },
+                                  "favorite": { "type": "boolean" },
+                                  "progress":
+                                    {
+                                      "$ref": "#/components/schemas/DocumentLocation",
+                                    },
+                                  "percentage": { "type": "number" },
+                                  "title":
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 300,
+                                    },
+                                  "author":
+                                    { "type": "string", "maxLength": 200 },
+                                  "library": { "enum": ["books", "papers"] },
+                                  "metadata":
+                                    {
+                                      "type": "object",
+                                      "description": "Fields to replace; each becomes a manual value. Empty strings clear a field.",
+                                      "properties":
+                                        {
+                                          "itemType":
+                                            {
+                                              "enum":
+                                                [
+                                                  "journal",
+                                                  "conference",
+                                                  "preprint",
+                                                  "thesis",
+                                                  "book",
+                                                  "chapter",
+                                                  "report",
+                                                  "other",
+                                                ],
+                                            },
+                                          "translatedTitle":
+                                            { "type": "string" },
+                                          "shortTitle": { "type": "string" },
+                                          "creators":
+                                            {
+                                              "type": "array",
+                                              "maxItems": 200,
+                                              "items":
+                                                {
+                                                  "$ref": "#/components/schemas/Creator",
+                                                },
+                                            },
+                                          "affiliation": { "type": "string" },
+                                          "date":
+                                            {
+                                              "type": "string",
+                                              "pattern": "^\\d{4}(-\\d{2}(-\\d{2})?)?$",
+                                            },
+                                          "venue": { "type": "string" },
+                                          "volume": { "type": "string" },
+                                          "issue": { "type": "string" },
+                                          "pages": { "type": "string" },
+                                          "publisher": { "type": "string" },
+                                          "doi": { "type": "string" },
+                                          "arxiv": { "type": "string" },
+                                          "isbn": { "type": "string" },
+                                          "url": { "type": "string" },
+                                          "abstract":
+                                            {
+                                              "type": "string",
+                                              "maxLength": 20000,
+                                            },
+                                          "language": { "type": "string" },
+                                          "remark":
+                                            {
+                                              "type": "string",
+                                              "maxLength": 20000,
+                                            },
+                                        },
+                                      "additionalProperties": false,
+                                    },
+                                  "readingStatus":
+                                    { "enum": ["unread", "reading", "done"] },
+                                },
+                              "required": [],
+                            },
+                        },
+                    },
+                },
+            },
+          "delete":
+            {
+              "summary": "Permanently delete a document and its library-owned data after stopping background tasks",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "204": { "description": "Deleted or already absent" },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/classification":
+        {
+          "post":
+            {
+              "summary": "Retry AI classification; manual types are protected",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Queued",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/annotations/undo":
+        {
+          "post":
+            {
+              "description": "Undo the latest annotation mutation from this window and document. Restores merged/deleted marks and original IDs atomically; rejects changes superseded by another client. History is in-memory, bounded to the latest 100 operations and 16 MiB across the server.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "name": "X-Reader-Undo-Session",
+                    "in": "header",
+                    "required": true,
+                    "schema":
+                      { "type": "string", "minLength": 1, "maxLength": 128 },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Undo result; use the returned annotations only when undone is true",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "required": ["undone", "annotations"],
+                                  "properties":
+                                    {
+                                      "undone": { "type": "boolean" },
+                                      "annotations":
+                                        {
+                                          "type": "array",
+                                          "items":
+                                            {
+                                              "$ref": "#/components/schemas/Annotation",
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "An affected annotation changed outside this history; no data was overwritten and this document's window history was cleared",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/annotations":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    {
+                                      "$ref": "#/components/schemas/Annotation",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+            },
+          "post":
+            {
+              "responses":
+                {
+                  "201":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/SavedAnnotation",
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "parameters":
+                [
+                  {
+                    "name": "X-Reader-Undo-Session",
+                    "in": "header",
+                    "description": "Opt into per-window annotation undo history.",
+                    "schema": { "type": "string", "maxLength": 128 },
+                  },
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "id": { "type": "string" },
+                                  "documentId": { "type": "string" },
+                                  "kind":
+                                    {
+                                      "enum":
+                                        [
+                                          "highlight",
+                                          "underline",
+                                          "note",
+                                          "bookmark",
+                                        ],
+                                    },
+                                  "location":
+                                    {
+                                      "$ref": "#/components/schemas/DocumentLocation",
+                                    },
+                                  "quote": { "type": "string" },
+                                  "note": { "type": "string" },
+                                  "color": { "type": "string" },
+                                  "createdAt": { "type": "string" },
+                                },
+                              "required":
+                                ["kind", "location", "quote", "note", "color"],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/annotations/{annotation}":
+        {
+          "patch":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "X-Reader-Undo-Session",
+                    "in": "header",
+                    "description": "Opt into per-window annotation undo history.",
+                    "schema": { "type": "string", "maxLength": 128 },
+                  },
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "in": "path",
+                    "name": "annotation",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": [],
+                              "properties":
+                                {
+                                  "note": { "type": "string" },
+                                  "answerId":
+                                    {
+                                      "type": "string",
+                                      "description": "Message ID of this document; empty clears",
+                                    },
+                                  "resolved": { "type": "boolean" },
+                                  "color":
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#[0-9a-fA-F]{6}$",
+                                    },
+                                  "tags":
+                                    {
+                                      "type": "array",
+                                      "items": { "type": "string" },
+                                      "maxItems": 10,
+                                      "description": "Replaces the tags; trimmed and de-duplicated without regard to case",
+                                    },
+                                },
+                              "description": "At least one of note, answerId, resolved, color or tags",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Updated note; annotation identity, kind and location are preserved.",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Annotation" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "delete":
+            {
+              "responses":
+                {
+                  "204":
+                    {
+                      "description": "Success",
+                      "content": { "application/json": { "schema": {} } },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "parameters":
+                [
+                  {
+                    "name": "X-Reader-Undo-Session",
+                    "in": "header",
+                    "description": "Opt into per-window annotation undo history.",
+                    "schema": { "type": "string", "maxLength": 128 },
+                  },
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "in": "path",
+                    "name": "annotation",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+            },
+        },
+      "/api/documents/{id}/search":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    {
+                                      "$ref": "#/components/schemas/SearchResult",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "in": "query",
+                    "name": "q",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+            },
+        },
+      "/api/documents/{id}/messages":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    { "$ref": "#/components/schemas/Message" },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+            },
+        },
+      "/api/documents/{id}/chat":
+        {
+          "post":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "SSE v1: status, delta, fallback, error, done. See ChatStreamEvent. done is sent once only after confirmed upstream completion and successful assistant persistence. Fallback is allowed only before the first text delta. Disconnect cancels upstream; missing done requires checking messages, never automatic POST replay.",
+                      "content":
+                        {
+                          "text/event-stream":
+                            {
+                              "schema":
+                                {
+                                  "type": "string",
+                                  "description": "SSE frames separated by blank lines. See ChatStreamEvent for each event data shape.",
+                                },
+                              "x-event-schema":
+                                {
+                                  "$ref": "#/components/schemas/ChatStreamEvent",
+                                },
+                              "examples":
+                                {
+                                  "success":
+                                    {
+                                      "value": "event: status\ndata: {\"status\":\"reading\"}\n\nevent: delta\ndata: {\"text\":\"回答\"}\n\nevent: done\ndata: {\"ok\":true}\n\n",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "provider":
+                                    {
+                                      "enum":
+                                        ["codex", "claude", "kimi", "api"],
+                                    },
+                                  "attachments":
+                                    {
+                                      "type": "array",
+                                      "maxItems": 4,
+                                      "items":
+                                        {
+                                          "type": "string",
+                                          "pattern": "^p[1-9][0-9]*-b[1-9][0-9]*$",
+                                        },
+                                    },
+                                  "prompt": { "type": "string" },
+                                  "context": { "type": "string" },
+                                  "references":
+                                    {
+                                      "type": "array",
+                                      "items":
+                                        {
+                                          "type": "object",
+                                          "properties":
+                                            {
+                                              "text": { "type": "string" },
+                                              "kind":
+                                                {
+                                                  "enum":
+                                                    ["selection", "section"],
+                                                },
+                                              "location":
+                                                {
+                                                  "$ref": "#/components/schemas/DocumentLocation",
+                                                },
+                                            },
+                                          "required": ["text", "location"],
+                                        },
+                                    },
+                                },
+                              "required": ["provider", "prompt", "context"],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/providers":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "auth",
+                    "in": "query",
+                    "description": "Use skip for fast installation discovery; authentication is not a capability test.",
+                    "schema": { "type": "string", "enum": ["skip"] },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    { "$ref": "#/components/schemas/Provider" },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/settings":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Settings" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "put":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Settings" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema": { "$ref": "#/components/schemas/Settings" },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/processing":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    {
+                                      "$ref": "#/components/schemas/Processing",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/assistance":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Saved assistance state",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Processing" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "post":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Saved assistance state",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Processing" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["action"],
+                              "properties":
+                                {
+                                  "action":
+                                    {
+                                      "type": "string",
+                                      "enum": ["start", "pause", "resume"],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/processing":
+        {
+          "post":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Processing" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/blocks":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    { "$ref": "#/components/schemas/PDFBlock" },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/epub-chapters":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "EPUB in-document reader",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/EPUBChapters" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/epub-chapter":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "in": "query",
+                    "name": "href",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "EPUB in-document reader",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "required": ["html"],
+                                  "properties":
+                                    {
+                                      "html":
+                                        {
+                                          "type": "string",
+                                          "description": "Server sanitized reader-mode HTML; no publisher CSS",
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/epub-blocks":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Ordered EPUB paragraphs with exact source locations",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    {
+                                      "$ref": "#/components/schemas/EPUBReadingBlock",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/ai/models":
+        {
+          "get":
+            {
+              "summary": "List models reported by the installed Agent SDK without sending a prompt",
+              "parameters":
+                [
+                  {
+                    "in": "query",
+                    "name": "provider",
+                    "required": true,
+                    "schema":
+                      {
+                        "type": "string",
+                        "enum": ["codex", "claude", "kimi", "api"],
+                      },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Models available through this SDK",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    {
+                                      "$ref": "#/components/schemas/AgentModel",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "400": { "description": "Unknown provider" },
+                  "502": { "description": "Agent model discovery failed" },
+                },
+            },
+        },
+      "/api/ai/config":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/AIConfig" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "put":
+            {
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema": { "$ref": "#/components/schemas/AIConfig" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/AIConfig" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/ai/test/{provider}":
+        {
+          "post":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "capability",
+                    "in": "query",
+                    "description": "Test text or vision independently. Omit to run both. Vision requires a successful text check for the current configuration.",
+                    "schema": { "type": "string", "enum": ["text", "vision"] },
+                  },
+                  {
+                    "name": "model",
+                    "in": "query",
+                    "description": 'Required for the api provider, which is checked one model at a time; the result is stored under capabilities["api:<model>"].',
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "name": "provider",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/AICapability" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/translations":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    {
+                                      "$ref": "#/components/schemas/TranslationBlock",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "post":
+            {
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "blockId": { "type": "string" },
+                                  "force":
+                                    {
+                                      "type": "boolean",
+                                      "description": "Replace completed translations after canceling and joining their previous translation worker. Omit or false to keep them. With an empty blockId, papers retranslate all available paragraphs; books and EPUB only retranslate previously requested paragraphs and keep unrequested chapters idle. Returns 409 while PDF parsing is unfinished.",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "202":
+                    {
+                      "description": "Translation queued. Completed blocks stay unless force is true.",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "required": ["queued"],
+                                  "properties":
+                                    { "queued": { "type": "boolean" } },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/translations/{blockId}":
+        {
+          "put":
+            {
+              "description": "Replace one completed sentence only if its source hash, source text and existing target still match the editor's snapshot. Returns 409 when the sentence has changed. The source sentence stays unchanged.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "name": "blockId",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required":
+                                [
+                                  "index",
+                                  "target",
+                                  "sourceHash",
+                                  "source",
+                                  "expectedTarget",
+                                ],
+                              "properties":
+                                {
+                                  "index": { "type": "integer" },
+                                  "target": { "type": "string" },
+                                  "sourceHash": { "type": "string" },
+                                  "source": { "type": "string" },
+                                  "expectedTarget": { "type": "string" },
+                                },
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Updated translation",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/TranslationBlock",
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/translations/chapter":
+        {
+          "post":
+            {
+              "description": "Queue the EPUB chapter at this location. Top-level TOC boundaries (children of a sole book-title parent) take precedence; without a TOC use the spine file. Queues at most approximately 40000 Unicode source characters, retaining whole paragraphs and completed results. Resumes paused work. No PDF page numbers.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["location"],
+                              "properties":
+                                {
+                                  "location":
+                                    {
+                                      "type": "object",
+                                      "required": ["type", "href"],
+                                      "properties":
+                                        {
+                                          "type":
+                                            {
+                                              "type": "string",
+                                              "enum": ["epub"],
+                                            },
+                                          "href": { "type": "string" },
+                                          "blockId": { "type": "string" },
+                                          "locator": { "type": "string" },
+                                          "start":
+                                            { "type": "integer", "minimum": 0 },
+                                          "end":
+                                            { "type": "integer", "minimum": 0 },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "202":
+                    {
+                      "description": "Chapter queued",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "required":
+                                    ["queued", "characters", "hasMore"],
+                                  "properties":
+                                    {
+                                      "queued": { "type": "integer" },
+                                      "characters": { "type": "integer" },
+                                      "hasMore":
+                                        {
+                                          "type": "boolean",
+                                          "description": "Request this chapter again to queue the remaining text after the character limit.",
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/translations/range":
+        {
+          "post":
+            {
+              "description": "Queue untranslated paragraphs and formulas in a page range, in reading order, starting at the first unfinished page and covering at most 30 pages and 40000 source characters. Book pages that were never parsed are parsed first. Also resumes paused processing.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "required": ["fromPage", "toPage"],
+                              "properties":
+                                {
+                                  "fromPage":
+                                    { "type": "integer", "minimum": 1 },
+                                  "toPage": { "type": "integer", "minimum": 1 },
+                                },
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "202":
+                    {
+                      "description": "Range queued",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "required":
+                                    [
+                                      "queued",
+                                      "characters",
+                                      "nextPage",
+                                      "parsing",
+                                    ],
+                                  "properties":
+                                    {
+                                      "queued": { "type": "integer" },
+                                      "characters": { "type": "integer" },
+                                      "nextPage":
+                                        {
+                                          "type": "integer",
+                                          "description": "Page where the character or 30-page limit stopped the request; 0 when the range is fully queued.",
+                                        },
+                                      "parsing":
+                                        {
+                                          "type": "boolean",
+                                          "description": "Book pages in the window are parsed first (at most 30 pages); translation is queued when parsing finishes.",
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/translations/stream":
+        {
+          "get":
+            {
+              "description": "Authenticated translation subscription. Sends a snapshot on connection, then flushes each persisted translation block immediately. Reconnect obtains a new snapshot. Does not start or cancel generation.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "SSE: snapshot with TranslationBlock[], translation with TranslationBlock. Comment heartbeats; error closes subscription.",
+                      "content":
+                        {
+                          "text/event-stream":
+                            { "schema": { "type": "string" } },
+                        },
+                    },
+                  "401": { "description": "Authentication required" },
+                  "404": { "description": "PDF not found" },
+                },
+            },
+        },
+      "/api/tag-boards":
+        {
+          "get":
+            {
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    { "$ref": "#/components/schemas/TagBoard" },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "post":
+            {
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/TagBoardInput" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "201":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/TagBoard" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/tag-boards/{id}":
+        {
+          "put":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/TagBoardInput" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Success",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/TagBoard" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "delete":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "204": { "description": "Deleted; documents are unchanged" },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/processing-usage":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Persisted processing usage, including failed and fallback attempts",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/ProcessingUsage",
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/chat-usage":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Persisted per-document chat usage, including failed and fallback attempts",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/ProcessingUsage",
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/preferences/{key}":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "key",
+                    "required": true,
+                    "schema": { "enum": ["library", "guide"] },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Saved preferences, or an empty object",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "additionalProperties": true,
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "put":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "key",
+                    "required": true,
+                    "schema": { "enum": ["library", "guide"] },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "type": "object", "additionalProperties": true },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Saved",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "additionalProperties": true,
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/related/{other}":
+        {
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "id",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+              {
+                "in": "path",
+                "name": "other",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "put":
+            {
+              "summary": "Link two documents as related (both directions, idempotent, at most 100 per document)",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "The document at id",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "delete":
+            {
+              "summary": "Remove the link between two documents",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "The document at id",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/merge":
+        {
+          "post":
+            {
+              "summary": "Fold duplicates into this document: categories, star, the furthest reading status, missing metadata and paper notes move over; the duplicates go to the trash with their files, annotations and chats",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "from":
+                                    {
+                                      "type": "array",
+                                      "items": { "type": "string" },
+                                      "minItems": 1,
+                                      "maxItems": 20,
+                                    },
+                                },
+                              "required": ["from"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Merged",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    {
+                                      "document":
+                                        {
+                                          "$ref": "#/components/schemas/Document",
+                                        },
+                                      "trashed":
+                                        {
+                                          "type": "array",
+                                          "items": { "type": "string" },
+                                        },
+                                    },
+                                  "required": ["document", "trashed"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/trash":
+        {
+          "post":
+            {
+              "summary": "Move to the trash, keeping files and records; idempotent",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Trashed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/restore":
+        {
+          "post":
+            {
+              "summary": "Restore from the trash; idempotent",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Restored",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/trash":
+        {
+          "get":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "query",
+                    "name": "library",
+                    "required": true,
+                    "schema": { "enum": ["books", "papers"] },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Trashed documents, newest first",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "array",
+                                  "items":
+                                    { "$ref": "#/components/schemas/Document" },
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "delete":
+            {
+              "summary": "Permanently delete every trashed document in a library",
+              "parameters":
+                [
+                  {
+                    "in": "query",
+                    "name": "library",
+                    "required": true,
+                    "schema": { "enum": ["books", "papers"] },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Emptied",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    { "removed": { "type": "number" } },
+                                  "required": ["removed"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/libraries/{library}/folders":
+        {
+          "post":
+            {
+              "summary": "Rename a folder (with to) or remove it (without to) on every document of a library, including the trash, in one transaction. Subfolders (from/child) follow; 400 when a renamed folder would exceed 40 characters",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "library",
+                    "required": true,
+                    "schema": { "enum": ["books", "papers"] },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "from": { "type": "string", "minLength": 1 },
+                                  "to":
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 40,
+                                    },
+                                },
+                              "required": ["from"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Changed documents",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    { "changed": { "type": "number" } },
+                                  "required": ["changed"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/libraries/{library}/tags":
+        {
+          "post":
+            {
+              "summary": "Rename a tag (with to) or remove it (without to) on every document of a library, including the trash, in one transaction",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "library",
+                    "required": true,
+                    "schema": { "enum": ["books", "papers"] },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "from": { "type": "string", "minLength": 1 },
+                                  "to":
+                                    {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 40,
+                                    },
+                                },
+                              "required": ["from"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Changed documents",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    { "changed": { "type": "number" } },
+                                  "required": ["changed"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/resolve":
+        {
+          "post":
+            {
+              "summary": "Download a paper into the paper library from an arXiv ID, DOI, paper or PDF link, or title; metadata comes from arXiv, Crossref, Semantic Scholar, OpenReview or the page's citation tags",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties": { "ref": { "type": "string" } },
+                              "required": ["ref"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "The same file already exists",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "201":
+                    {
+                      "description": "Imported",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/metadata/lookup":
+        {
+          "post":
+            {
+              "summary": "Look up metadata by DOI, arXiv ID (also detected on the first pages) or a close title match; manual fields are kept",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Updated",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Document" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/note":
+        {
+          "get":
+            {
+              "summary": "The document's free-form paper note",
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Note (empty when unset)",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    {
+                                      "body":
+                                        {
+                                          "type": "string",
+                                          "maxLength": 100000,
+                                        },
+                                      "updatedAt": { "type": "string" },
+                                    },
+                                  "required": ["body"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "put":
+            {
+              "parameters":
+                [
+                  {
+                    "in": "path",
+                    "name": "id",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "properties":
+                                {
+                                  "body":
+                                    { "type": "string", "maxLength": 100000 },
+                                },
+                              "required": ["body"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Saved",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties":
+                                    {
+                                      "body":
+                                        {
+                                          "type": "string",
+                                          "maxLength": 100000,
+                                        },
+                                      "updatedAt": { "type": "string" },
+                                    },
+                                  "required": ["body"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/note-images":
+        {
+          "post":
+            {
+              "operationId": "saveNoteImage",
+              "summary": "Store one pasted note image",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/octet-stream":
+                        { "schema": { "type": "string", "format": "binary" } },
+                    },
+                },
+              "responses":
+                {
+                  "201":
+                    {
+                      "description": "Stored",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "type": "object",
+                                  "properties": { "id": { "type": "string" } },
+                                  "required": ["id"],
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/documents/{id}/note-images/{name}":
+        {
+          "get":
+            {
+              "operationId": "noteImage",
+              "summary": "Read one note image",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "name": "name",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Image bytes",
+                      "content":
+                        {
+                          "image/*":
+                            {
+                              "schema":
+                                { "type": "string", "format": "binary" },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+  "components":
+    {
+      "securitySchemes": { "session": { "type": "http", "scheme": "bearer" } },
+      "schemas":
+        {
+          "ZoteroEntry":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "title": { "type": "string" },
+                  "filename": { "type": "string" },
+                  "collections":
+                    { "type": "array", "items": { "type": "string" } },
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "notes": { "type": "integer", "minimum": 0 },
+                  "annotations": { "type": "integer", "minimum": 0 },
+                  "size": { "type": "integer", "minimum": 0 },
+                  "issue": { "type": "string" },
+                  "warnings":
+                    { "type": "array", "items": { "type": "string" } },
+                },
+              "required":
+                [
+                  "id",
+                  "title",
+                  "filename",
+                  "collections",
+                  "tags",
+                  "notes",
+                  "annotations",
+                  "size",
+                  "warnings",
+                ],
+            },
+          "ZoteroScan":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "directory": { "type": "string" },
+                  "entries":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ZoteroEntry" },
+                    },
+                  "warnings":
+                    { "type": "array", "items": { "type": "string" } },
+                },
+              "required": ["id", "directory", "entries", "warnings"],
+            },
+          "ZoteroImportResult":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "documentId": { "type": "string" },
+                  "status":
+                    {
+                      "type": "string",
+                      "enum": ["imported", "merged", "exists"],
+                    },
+                  "notes": { "type": "integer", "minimum": 0 },
+                  "annotations": { "type": "integer", "minimum": 0 },
+                  "warnings":
+                    { "type": "array", "items": { "type": "string" } },
+                },
+              "required":
+                ["documentId", "status", "notes", "annotations", "warnings"],
+            },
+          "DocumentLocation":
+            {
+              "oneOf":
+                [
+                  {
+                    "type": "object",
+                    "properties":
+                      {
+                        "type": { "const": "pdf" },
+                        "page": { "type": "integer", "minimum": 1 },
+                        "x": { "type": "number" },
+                        "y": { "type": "number" },
+                        "quote": { "type": "string" },
+                        "rects":
+                          {
+                            "type": "array",
+                            "items":
+                              {
+                                "type": "object",
+                                "properties":
+                                  {
+                                    "x": { "type": "number" },
+                                    "y": { "type": "number" },
+                                    "width": { "type": "number" },
+                                    "height": { "type": "number" },
+                                  },
+                                "required": ["x", "y", "width", "height"],
+                              },
+                          },
+                        "sentenceLink":
+                          { "$ref": "#/components/schemas/SentenceLink" },
+                        "translation":
+                          {
+                            "$ref": "#/components/schemas/TranslationLocation",
+                          },
+                      },
+                    "required": ["type", "page"],
+                  },
+                  { "$ref": "#/components/schemas/EPUBLocation" },
+                ],
+            },
+          "Document":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "category": { "enum": ["book", "article", "paper"] },
+                  "categorySource": { "enum": ["default", "ai", "manual"] },
+                  "classificationStatus":
+                    {
+                      "enum": ["idle", "pending", "running", "failed", "done"],
+                    },
+                  "classificationError": { "type": "string" },
+                  "tags":
+                    {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items":
+                        { "type": "string", "minLength": 1, "maxLength": 40 },
+                    },
+                  "folders":
+                    {
+                      "type": "array",
+                      "maxItems": 30,
+                      "items":
+                        { "type": "string", "minLength": 1, "maxLength": 40 },
+                      "description": "Paper-library categories; a/b is nested in a",
+                    },
+                  "id": { "type": "string" },
+                  "type": { "enum": ["pdf", "epub"] },
+                  "title": { "type": "string" },
+                  "author": { "type": "string" },
+                  "size": { "type": "number" },
+                  "createdAt": { "type": "string" },
+                  "lastOpenedAt": { "type": "string" },
+                  "favorite": { "type": "boolean" },
+                  "percentage": { "type": "number" },
+                  "progress":
+                    { "$ref": "#/components/schemas/DocumentLocation" },
+                  "library": { "enum": ["books", "papers"] },
+                  "deletedAt":
+                    {
+                      "type": "string",
+                      "description": "Set while the document is in the trash",
+                    },
+                  "metadata": { "$ref": "#/components/schemas/PaperMetadata" },
+                  "readingStatus": { "enum": ["unread", "reading", "done"] },
+                  "noteCount": { "type": "number" },
+                  "highlightCount":
+                    {
+                      "type": "number",
+                      "description": "Highlights and underlines",
+                    },
+                  "openQuestionCount":
+                    {
+                      "type": "number",
+                      "description": "Questions without an answer that are not resolved",
+                    },
+                  "related":
+                    {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "Documents linked as related, in both directions; may include trashed ones",
+                    },
+                },
+              "required":
+                [
+                  "category",
+                  "categorySource",
+                  "classificationStatus",
+                  "classificationError",
+                  "tags",
+                  "folders",
+                  "id",
+                  "type",
+                  "title",
+                  "author",
+                  "size",
+                  "createdAt",
+                  "lastOpenedAt",
+                  "favorite",
+                  "percentage",
+                  "library",
+                  "metadata",
+                  "readingStatus",
+                  "noteCount",
+                  "highlightCount",
+                  "openQuestionCount",
+                  "related",
+                ],
+            },
+          "Annotation":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "documentId": { "type": "string" },
+                  "kind":
+                    {
+                      "enum":
+                        [
+                          "highlight",
+                          "underline",
+                          "note",
+                          "question",
+                          "bookmark",
+                        ],
+                    },
+                  "location":
+                    { "$ref": "#/components/schemas/DocumentLocation" },
+                  "quote": { "type": "string" },
+                  "note": { "type": "string" },
+                  "color": { "type": "string" },
+                  "createdAt": { "type": "string" },
+                  "answerId":
+                    {
+                      "type": "string",
+                      "description": "Chat message that answers a question",
+                    },
+                  "resolved":
+                    {
+                      "type": "boolean",
+                      "description": "A question closed without an answer",
+                    },
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                },
+              "required":
+                [
+                  "id",
+                  "documentId",
+                  "kind",
+                  "location",
+                  "quote",
+                  "note",
+                  "color",
+                  "createdAt",
+                ],
+            },
+          "SavedAnnotation":
+            {
+              "allOf":
+                [
+                  { "$ref": "#/components/schemas/Annotation" },
+                  {
+                    "type": "object",
+                    "properties":
+                      {
+                        "replacedIds":
+                          {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "IDs removed when overlapping underlines were merged into the returned annotation.",
+                          },
+                      },
+                  },
+                ],
+            },
+          "SearchResult":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "excerpt": { "type": "string" },
+                  "location":
+                    { "$ref": "#/components/schemas/DocumentLocation" },
+                },
+              "required": ["id", "excerpt", "location"],
+            },
+          "Message":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "documentId": { "type": "string" },
+                  "role": { "enum": ["user", "assistant"] },
+                  "content": { "type": "string" },
+                  "createdAt": { "type": "string" },
+                  "context": { "type": "string" },
+                  "attachments":
+                    {
+                      "type": "array",
+                      "items":
+                        {
+                          "type": "object",
+                          "properties":
+                            {
+                              "id": { "type": "string" },
+                              "page": { "type": "integer" },
+                              "label": { "type": "string" },
+                              "caption": { "type": "string" },
+                            },
+                          "required": ["id", "page", "label"],
+                        },
+                    },
+                  "references":
+                    {
+                      "type": "array",
+                      "items":
+                        {
+                          "type": "object",
+                          "properties":
+                            {
+                              "text": { "type": "string" },
+                              "kind": { "enum": ["selection", "section"] },
+                              "location":
+                                {
+                                  "$ref": "#/components/schemas/DocumentLocation",
+                                },
+                            },
+                          "required": ["text", "location"],
+                        },
+                    },
+                },
+              "required": ["id", "documentId", "role", "content", "createdAt"],
+            },
+          "Provider":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id":
+                    {
+                      "type": "string",
+                      "enum": ["codex", "claude", "kimi", "api"],
+                    },
+                  "installed": { "type": "boolean" },
+                  "authenticated": { "type": "boolean" },
+                  "status": { "type": "string" },
+                },
+              "required": ["id", "installed", "authenticated", "status"],
+            },
+          "Settings":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "autoCopySelection":
+                    {
+                      "type": "boolean",
+                      "description": "Copy selected text and clicked annotation quotes to the clipboard. Disabled when omitted.",
+                    },
+                },
+              "additionalProperties": true,
+            },
+          "ChatStreamEvent":
+            {
+              "description": "Decoded SSE event union for documentation and generated types only. Wire uses event: NAME and data: JSON lines; no envelope is transmitted. Append delta text verbatim. Only done confirms successful persistence. EOF is not completion. After error/done ignore late data. No automatic POST replay.",
+              "oneOf":
+                [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["event", "data"],
+                    "properties":
+                      {
+                        "event": { "type": "string", "enum": ["status"] },
+                        "data":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["status"],
+                            "properties":
+                              {
+                                "status":
+                                  {
+                                    "type": "string",
+                                    "enum": ["reading", "reading-image"],
+                                  },
+                              },
+                          },
+                      },
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["event", "data"],
+                    "properties":
+                      {
+                        "event": { "type": "string", "enum": ["delta"] },
+                        "data":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["text"],
+                            "properties": { "text": { "type": "string" } },
+                          },
+                      },
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["event", "data"],
+                    "properties":
+                      {
+                        "event": { "type": "string", "enum": ["fallback"] },
+                        "data":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["message"],
+                            "properties": { "message": { "type": "string" } },
+                          },
+                      },
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["event", "data"],
+                    "properties":
+                      {
+                        "event": { "type": "string", "enum": ["error"] },
+                        "data":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["error"],
+                            "properties": { "error": { "type": "string" } },
+                          },
+                      },
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["event", "data"],
+                    "properties":
+                      {
+                        "event": { "type": "string", "enum": ["done"] },
+                        "data":
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["ok"],
+                            "properties":
+                              { "ok": { "type": "boolean", "enum": [true] } },
+                          },
+                      },
+                  },
+                ],
+            },
+          "Error":
+            {
+              "type": "object",
+              "properties": { "error": { "type": "string" } },
+              "required": ["error"],
+            },
+          "ProcessingStage":
+            {
+              "type": "object",
+              "required": ["status", "detail"],
+              "properties":
+                {
+                  "status":
+                    {
+                      "enum":
+                        ["queued", "running", "waiting", "failed", "complete"],
+                    },
+                  "detail": { "type": "string" },
+                  "warning": { "type": "string" },
+                },
+            },
+          "Processing":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "enabled": { "type": "boolean" },
+                  "epubManual":
+                    {
+                      "type": "boolean",
+                      "readOnly": true,
+                      "description": "EPUB work uses explicit chapter requests; the legacy automatic queue has been migrated.",
+                    },
+                  "translating":
+                    { "$ref": "#/components/schemas/ProcessingStage" },
+                  "documentId": { "type": "string" },
+                  "phase":
+                    {
+                      "type": "string",
+                      "enum": ["learning", "translating", "ready"],
+                    },
+                  "status":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "queued",
+                          "running",
+                          "waiting",
+                          "failed",
+                          "complete",
+                          "paused",
+                        ],
+                    },
+                  "pagesDone": { "type": "integer" },
+                  "pagesTotal": { "type": "integer" },
+                  "translationsDone": { "type": "integer" },
+                  "translationsTotal": { "type": "integer" },
+                  "detail": { "type": "string" },
+                  "warning": { "type": "string" },
+                  "updatedAt": { "type": "string" },
+                  "incomplete": { "type": "boolean" },
+                  "startedAt": { "type": "string" },
+                  "completedAt": { "type": "string" },
+                  "usageTracked": { "type": "boolean" },
+                },
+              "required":
+                [
+                  "documentId",
+                  "phase",
+                  "status",
+                  "pagesDone",
+                  "pagesTotal",
+                  "translationsDone",
+                  "translationsTotal",
+                  "detail",
+                  "updatedAt",
+                ],
+            },
+          "PDFBlock":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "page": { "type": "integer" },
+                  "label": { "type": "string" },
+                  "bounds":
+                    {
+                      "type": "object",
+                      "properties":
+                        {
+                          "x": { "type": "number" },
+                          "y": { "type": "number" },
+                          "width": { "type": "number" },
+                          "height": { "type": "number" },
+                        },
+                      "required": ["x", "y", "width", "height"],
+                    },
+                  "text": { "type": "string" },
+                  "kind": { "enum": ["selection", "section"] },
+                  "image": { "type": "string" },
+                  "caption": { "type": "string" },
+                },
+              "required": ["id", "page", "label", "bounds", "text"],
+            },
+          "AICapability":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "text": { "type": "boolean" },
+                  "pendingVision":
+                    {
+                      "type": "boolean",
+                      "description": "Text passed; vision has not finished. Resume vision on the next check.",
+                    },
+                  "vision": { "type": "boolean" },
+                  "checkedAt": { "type": "string" },
+                  "error": { "type": "string" },
+                },
+              "required": ["text", "vision", "checkedAt"],
+            },
+          "APIConnection":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "url": { "type": "string" },
+                  "model": { "type": "string" },
+                  "key": { "type": "string", "writeOnly": true },
+                  "hasKey": { "type": "boolean" },
+                },
+              "required": ["url", "model", "hasKey"],
+            },
+          "AgentModel":
+            {
+              "type": "object",
+              "required": ["id", "name", "description", "isDefault"],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "isDefault": { "type": "boolean" },
+                  "aliases": { "type": "array", "items": { "type": "string" } },
+                  "recommendedFor":
+                    {
+                      "type": "array",
+                      "description": "Tasks that use this model when no model is chosen. For the api provider, only models that passed the task's check are recommended.",
+                      "items":
+                        {
+                          "type": "string",
+                          "enum": ["chat", "translation", "vision"],
+                        },
+                    },
+                  "custom":
+                    {
+                      "type": "boolean",
+                      "description": "api provider: a model ID the user added.",
+                    },
+                  "capability":
+                    {
+                      "$ref": "#/components/schemas/AICapability",
+                      "description": "api provider: this model's current check result.",
+                    },
+                },
+            },
+          "ReasoningEffort":
+            { "type": "string", "enum": ["low", "medium", "high", "max"] },
+          "AIConfig":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "primary": { "type": "string" },
+                  "models":
+                    {
+                      "type": "object",
+                      "additionalProperties": { "type": "string" },
+                    },
+                  "efforts":
+                    {
+                      "type": "object",
+                      "description": "Reader effort by provider and model ID. Defaults to medium; adapted to SDK-native values on invocation.",
+                      "additionalProperties":
+                        {
+                          "type": "object",
+                          "additionalProperties":
+                            { "$ref": "#/components/schemas/ReasoningEffort" },
+                        },
+                    },
+                  "translationModels":
+                    {
+                      "type": "object",
+                      "description": "Translation model by provider. Empty uses the provider's fast-tier recommendation.",
+                      "additionalProperties": { "type": "string" },
+                    },
+                  "translationEfforts":
+                    {
+                      "type": "object",
+                      "description": "Translation effort by provider and model ID. Defaults to medium.",
+                      "additionalProperties":
+                        {
+                          "type": "object",
+                          "additionalProperties":
+                            { "$ref": "#/components/schemas/ReasoningEffort" },
+                        },
+                    },
+                  "visionModels":
+                    {
+                      "type": "object",
+                      "description": "Image-input model by provider; used by the api agent only. Empty uses the recommended model that passed the vision check.",
+                      "additionalProperties": { "type": "string" },
+                    },
+                  "visionEfforts":
+                    {
+                      "type": "object",
+                      "additionalProperties":
+                        {
+                          "type": "object",
+                          "additionalProperties":
+                            { "$ref": "#/components/schemas/ReasoningEffort" },
+                        },
+                    },
+                  "apiModels":
+                    {
+                      "type": "array",
+                      "description": "Model IDs the user added beside the api endpoint's /models list.",
+                      "items": { "type": "string" },
+                    },
+                  "api":
+                    {
+                      "$ref": "#/components/schemas/APIConnection",
+                      "description": "OpenAI-compatible endpoint of the api agent. Its models are chosen in models and translationModels; model here is unused.",
+                    },
+                  "textAPI": { "$ref": "#/components/schemas/APIConnection" },
+                  "imageAPI": { "$ref": "#/components/schemas/APIConnection" },
+                  "capabilities":
+                    {
+                      "type": "object",
+                      "additionalProperties":
+                        { "$ref": "#/components/schemas/AICapability" },
+                    },
+                },
+              "required":
+                [
+                  "primary",
+                  "models",
+                  "api",
+                  "textAPI",
+                  "imageAPI",
+                  "capabilities",
+                ],
+            },
+          "TranslationSentence":
+            {
+              "type": "object",
+              "required": ["source", "target"],
+              "properties":
+                {
+                  "source":
+                    {
+                      "type": "string",
+                      "description": "The model's sentence; it may repair PDF extraction errors.",
+                    },
+                  "target": { "type": "string" },
+                  "anchor":
+                    {
+                      "type": "string",
+                      "description": "Extracted text this sentence covers when it differs from source; used to locate the sentence in the PDF text layer.",
+                    },
+                },
+            },
+          "TranslationBlock":
+            {
+              "type": "object",
+              "required": ["blockId", "sourceHash", "status", "sentences"],
+              "properties":
+                {
+                  "blockId": { "type": "string" },
+                  "sourceHash": { "type": "string" },
+                  "status":
+                    {
+                      "enum":
+                        ["idle", "pending", "running", "complete", "failed"],
+                      "description": "idle: a book paragraph that has not been requested.",
+                    },
+                  "sentences":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/TranslationSentence" },
+                    },
+                  "formulaMarkdown":
+                    {
+                      "type": "string",
+                      "description": "Formula-only Markdown converted asynchronously from the original image during translation.",
+                    },
+                  "error": { "type": "string" },
+                },
+            },
+          "TagBoardInput":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+                  "tags":
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 30,
+                      "items":
+                        { "type": "string", "minLength": 1, "maxLength": 40 },
+                    },
+                  "match": { "type": "string", "enum": ["all", "any"] },
+                },
+              "required": ["name", "tags", "match"],
+            },
+          "TagBoard":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+                  "tags":
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 30,
+                      "items":
+                        { "type": "string", "minLength": 1, "maxLength": 40 },
+                    },
+                  "match": { "type": "string", "enum": ["all", "any"] },
+                },
+              "required": ["id", "name", "tags", "match"],
+            },
+          "TokenCounts":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "inputTokens": { "type": "integer", "minimum": 0 },
+                  "outputTokens": { "type": "integer", "minimum": 0 },
+                  "totalTokens": { "type": "integer", "minimum": 0 },
+                  "cachedInputTokens":
+                    { "type": ["integer", "null"], "minimum": 0 },
+                  "cacheWriteInputTokens":
+                    { "type": ["integer", "null"], "minimum": 0 },
+                  "reasoningOutputTokens":
+                    { "type": ["integer", "null"], "minimum": 0 },
+                },
+              "required":
+                [
+                  "inputTokens",
+                  "outputTokens",
+                  "totalTokens",
+                  "cachedInputTokens",
+                  "cacheWriteInputTokens",
+                  "reasoningOutputTokens",
+                ],
+            },
+          "ModelTokens":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "model": { "type": "string" },
+                  "tokens":
+                    {
+                      "oneOf":
+                        [
+                          { "$ref": "#/components/schemas/TokenCounts" },
+                          { "type": "null" },
+                        ],
+                    },
+                },
+              "required": ["model", "tokens"],
+            },
+          "UsageCall":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "stage": { "type": "string" },
+                  "target": { "type": "string" },
+                  "provider": { "type": "string" },
+                  "startedAt": { "type": "string" },
+                  "finishedAt": { "type": "string" },
+                  "status": { "type": "string" },
+                  "models":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ModelTokens" },
+                    },
+                },
+              "required":
+                [
+                  "id",
+                  "stage",
+                  "target",
+                  "provider",
+                  "startedAt",
+                  "status",
+                  "models",
+                ],
+            },
+          "UsageGroup":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "stage": { "type": "string" },
+                  "provider": { "type": "string" },
+                  "model": { "type": "string" },
+                  "calls": { "type": "integer", "minimum": 0 },
+                  "unknownCalls": { "type": "integer", "minimum": 0 },
+                  "tokens": { "$ref": "#/components/schemas/TokenCounts" },
+                },
+              "required":
+                [
+                  "stage",
+                  "provider",
+                  "model",
+                  "calls",
+                  "unknownCalls",
+                  "tokens",
+                ],
+            },
+          "StageUsage":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "stage": { "type": "string" },
+                  "durationMs": { "type": "integer", "minimum": 0 },
+                },
+              "required": ["stage", "durationMs"],
+            },
+          "ProcessingUsage":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "historyComplete": { "type": "boolean" },
+                  "total": { "$ref": "#/components/schemas/TokenCounts" },
+                  "calls":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/UsageCall" },
+                    },
+                  "groups":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/UsageGroup" },
+                    },
+                  "stages":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/StageUsage" },
+                    },
+                  "unknownCalls": { "type": "integer", "minimum": 0 },
+                  "failedCalls": { "type": "integer", "minimum": 0 },
+                  "partialCalls": { "type": "integer", "minimum": 0 },
+                  "elapsedMs": { "type": "integer", "minimum": 0 },
+                },
+              "required":
+                [
+                  "historyComplete",
+                  "total",
+                  "calls",
+                  "groups",
+                  "stages",
+                  "unknownCalls",
+                  "failedCalls",
+                  "partialCalls",
+                  "elapsedMs",
+                ],
+            },
+          "Creator":
+            {
+              "type": "object",
+              "description": "CSL-style name: given/family for split names, name for a single literal name",
+              "properties":
+                {
+                  "given": { "type": "string" },
+                  "family": { "type": "string" },
+                  "name": { "type": "string" },
+                },
+            },
+          "PaperMetadata":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "itemType":
+                    {
+                      "enum":
+                        [
+                          "journal",
+                          "conference",
+                          "preprint",
+                          "thesis",
+                          "book",
+                          "chapter",
+                          "report",
+                          "other",
+                        ],
+                    },
+                  "translatedTitle": { "type": "string" },
+                  "shortTitle": { "type": "string" },
+                  "creators":
+                    {
+                      "type": "array",
+                      "maxItems": 200,
+                      "items": { "$ref": "#/components/schemas/Creator" },
+                    },
+                  "affiliation": { "type": "string" },
+                  "date":
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{4}(-\\d{2}(-\\d{2})?)?$",
+                    },
+                  "venue": { "type": "string" },
+                  "volume": { "type": "string" },
+                  "issue": { "type": "string" },
+                  "pages": { "type": "string" },
+                  "publisher": { "type": "string" },
+                  "doi": { "type": "string" },
+                  "arxiv": { "type": "string" },
+                  "isbn": { "type": "string" },
+                  "url": { "type": "string" },
+                  "abstract": { "type": "string", "maxLength": 20000 },
+                  "language": { "type": "string" },
+                  "remark":
+                    {
+                      "type": "string",
+                      "description": "The reader's own note on the item; never looked up",
+                    },
+                  "sources":
+                    {
+                      "type": "object",
+                      "description": "Origin per field; lookups never replace manual values",
+                      "additionalProperties":
+                        { "enum": ["file", "lookup", "manual"] },
+                    },
+                  "lookedUpAt": { "type": "string" },
+                  "lookup":
+                    {
+                      "enum": ["pending", "done", "notFound", "failed"],
+                      "description": "Automatic lookup state for papers imported from files",
+                    },
+                },
+            },
+          "SentenceLink":
+            {
+              "type": "object",
+              "required": ["origin", "parts"],
+              "properties":
+                {
+                  "origin":
+                    { "type": "string", "enum": ["source", "translation"] },
+                  "parts":
+                    {
+                      "type": "array",
+                      "items":
+                        {
+                          "type": "object",
+                          "required":
+                            [
+                              "blockId",
+                              "sourceHash",
+                              "sentenceIndex",
+                              "source",
+                              "target",
+                            ],
+                          "properties":
+                            {
+                              "blockId": { "type": "string" },
+                              "sourceHash": { "type": "string" },
+                              "sentenceIndex":
+                                { "type": "integer", "minimum": 0 },
+                              "source": { "type": "string" },
+                              "target": { "type": "string" },
+                            },
+                        },
+                    },
+                },
+            },
+          "TranslationLocation":
+            {
+              "type": "object",
+              "required":
+                ["blockId", "sourceHash", "sentenceIndexes", "start", "end"],
+              "properties":
+                {
+                  "blockId": { "type": "string" },
+                  "sourceHash": { "type": "string" },
+                  "sentenceIndexes":
+                    {
+                      "type": "array",
+                      "items": { "type": "integer", "minimum": 0 },
+                    },
+                  "start": { "type": "integer", "minimum": 0 },
+                  "end": { "type": "integer", "minimum": 0 },
+                  "ranges":
+                    {
+                      "type": "array",
+                      "items":
+                        {
+                          "type": "object",
+                          "required":
+                            [
+                              "blockId",
+                              "sourceHash",
+                              "sentenceIndexes",
+                              "start",
+                              "end",
+                              "quote",
+                            ],
+                          "properties":
+                            {
+                              "blockId": { "type": "string" },
+                              "sourceHash": { "type": "string" },
+                              "sentenceIndexes":
+                                {
+                                  "type": "array",
+                                  "items": { "type": "integer", "minimum": 0 },
+                                },
+                              "start": { "type": "integer", "minimum": 0 },
+                              "end": { "type": "integer", "minimum": 0 },
+                              "quote": { "type": "string" },
+                              "location":
+                                { "$ref": "#/components/schemas/EPUBLocation" },
+                            },
+                        },
+                    },
+                },
+            },
+          "EPUBLocation":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "type": { "const": "epub" },
+                  "href": { "type": "string" },
+                  "blockId": { "type": "string" },
+                  "start": { "type": "integer", "minimum": 0 },
+                  "end": { "type": "integer", "minimum": 0 },
+                  "endBlockId": { "type": "string" },
+                  "locator": { "type": "string" },
+                  "progression": { "type": "number" },
+                  "quote": { "type": "string" },
+                  "sentenceLink":
+                    { "$ref": "#/components/schemas/SentenceLink" },
+                  "translation":
+                    { "$ref": "#/components/schemas/TranslationLocation" },
+                },
+              "required": ["type", "href"],
+            },
+          "EPUBChapters":
+            {
+              "type": "object",
+              "required": ["chapters", "toc"],
+              "properties":
+                {
+                  "chapters":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/EPUBChapter" },
+                    },
+                  "toc":
+                    {
+                      "type": ["array", "null"],
+                      "items":
+                        { "$ref": "#/components/schemas/EPUBChapterLink" },
+                    },
+                },
+            },
+          "EPUBChapter":
+            {
+              "type": "object",
+              "required": ["href", "title", "index", "characters", "blocks"],
+              "properties":
+                {
+                  "href": { "type": "string" },
+                  "title": { "type": "string" },
+                  "index": { "type": "integer" },
+                  "characters": { "type": "integer" },
+                  "blocks":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/EPUBReadingBlock" },
+                    },
+                },
+            },
+          "EPUBChapterLink":
+            {
+              "type": "object",
+              "required": ["href", "title"],
+              "properties":
+                {
+                  "href": { "type": "string" },
+                  "title": { "type": "string" },
+                  "children":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/EPUBChapterLink" },
+                    },
+                },
+            },
+          "EPUBReadingBlock":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "label": { "type": "string" },
+                  "text": { "type": "string" },
+                  "location": { "$ref": "#/components/schemas/EPUBLocation" },
+                  "image": { "type": "string" },
+                },
+              "required": ["id", "label", "text", "location"],
+            },
+        },
+    },
+}

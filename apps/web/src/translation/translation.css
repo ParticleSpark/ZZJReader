@@ -1,0 +1,403 @@
+.pdf-reading,
+.epub-reading {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--background);
+}
+.translation-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  -webkit-app-region: no-drag;
+  flex: none;
+  overflow-x: auto;
+}
+.translation-panes {
+  display: flex;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.translation-source {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.translation-pane-content {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+.translation-divider {
+  z-index: 5;
+  cursor: col-resize;
+  -webkit-app-region: no-drag;
+}
+.translation-divider[hidden] {
+  display: none;
+}
+.translation-swap {
+  position: absolute;
+  top: 12px;
+  z-index: 6;
+  transform: translateX(-50%);
+  cursor: pointer;
+  color: var(--muted-foreground);
+}
+.translation-document {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: max(32px, var(--translation-inset, 32px)) clamp(16px, 3vw, 44px);
+  scrollbar-gutter: stable;
+  background: var(--background);
+  color: var(--foreground);
+  overflow-anchor: auto;
+}
+.translation-document section {
+  position: relative;
+  margin: 0 auto 1.25em;
+  max-width: 44rem;
+  overflow-wrap: anywhere;
+  outline: 0.5px solid transparent;
+  border-radius: 4px;
+  transition:
+    background-color 180ms ease-out,
+    outline-color 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+.translation-document [data-label="doc_title"] {
+  font-size: 1.45em;
+  font-weight: 600;
+}
+.translation-document [data-label="paragraph_title"] {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin-top: 1.8em;
+}
+.translation-sentence,
+.translation-sentence > .message-markdown,
+.translation-sentence > .message-markdown > p {
+  display: inline;
+  margin: 0;
+}
+.translation-sentence::after {
+  content: " ";
+}
+.translation-sentence[data-linked] {
+  background: color-mix(in srgb, var(--primary) 13%, transparent);
+  border-radius: 3px;
+}
+.translation-document ::highlight(reader-translation-selection) {
+  background-color: rgba(59, 130, 246, 0.3);
+  background-color: color-mix(in srgb, AccentColor 30%, transparent);
+}
+.translation-document[data-compact-selection]::selection,
+.translation-document[data-compact-selection] ::selection {
+  background-color: transparent;
+  color: inherit;
+}
+.translation-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 12px auto;
+  border-radius: 3px;
+}
+.translation-pending {
+  min-height: 5em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted-foreground);
+  font-size: 0.85em;
+}
+.translation-warning {
+  font-size: 0.8em;
+  color: var(--muted-foreground);
+  margin-bottom: 24px;
+}
+.translation-popover {
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(55vh, 500px);
+  overflow: auto;
+  line-height: 1.8;
+  padding: 16px;
+}
+.pdf-reading-controls {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+.pdf-reading-controls > * {
+  pointer-events: auto;
+}
+.pdf-page-navigation {
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 10px;
+  padding: 3px;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 2px 10px #0000000d;
+}
+.pdf-page-navigation .page-navigation {
+  gap: 4px;
+}
+.pdf-page-navigation button {
+  width: 24px;
+  height: 24px;
+}
+.pdf-page-navigation button svg {
+  width: 14px;
+  height: 14px;
+}
+.pdf-page-navigation input {
+  width: 44px;
+  height: 24px;
+  background: transparent;
+}
+.pdf-reading[data-theme="sepia"] .pdf-page-navigation,
+.epub-reading[data-theme="sepia"] .pdf-page-navigation {
+  background: #f7f6f2;
+  color: #1f1e1d;
+}
+.pdf-reading[data-theme="cream"],
+.epub-reading[data-theme="cream"],
+.pdf-reading[data-theme="cream"] .reader-engine,
+.pdf-reading[data-theme="cream"] .pdfViewer {
+  background: #eeede7;
+}
+.pdf-reading[data-theme="cream"] .pdfViewer .page,
+.pdf-reading[data-theme="cream"] .pdfViewer .canvasWrapper {
+  background-color: #f4ecd8 !important;
+}
+/* PDF.js hides .page::after after load, so tint the canvas against this paper color. */
+.pdf-reading[data-theme="cream"] .pdfViewer .canvasWrapper canvas {
+  mix-blend-mode: multiply;
+}
+.pdf-reading[data-theme="cream"] .pdf-page-navigation,
+.epub-reading[data-theme="cream"] .pdf-page-navigation {
+  background: #eeede7;
+  color: #1f1e1d;
+}
+
+.textLayer ::highlight(reader-linked-sentences) {
+  /* A subtle linked-sentence cue; visible glyphs remain on the PDF canvas. */
+  background-color: rgba(128, 128, 128, 0.22);
+  color: transparent;
+}
+.textLayer br::highlight(reader-linked-sentences) {
+  background-color: transparent;
+}
+.translation-note-indicator {
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: #e6b94c;
+}
+:root[data-theme="sepia"] .translation-note-indicator {
+  background: var(--brand-30);
+}
+@media (prefers-reduced-motion: reduce) {
+  .translation-document {
+    scroll-behavior: auto;
+  }
+}
+.pdf-reading[data-theme="sepia"] .translation-document,
+.epub-reading[data-theme="sepia"] .translation-document {
+  background: #f7f6f2;
+  color: #1f1e1d;
+}
+.pdf-reading[data-theme="cream"] .translation-document,
+.epub-reading[data-theme="cream"] .translation-document {
+  background: #eeede7;
+  color: #1f1e1d;
+}
+::highlight(reader-translation-marks) {
+  background: #e6b94c66;
+  color: inherit;
+}
+::highlight(reader-translation-underlines) {
+  text-decoration: underline 2px #e6b94c;
+}
+
+.translation-document [data-translation-block][data-focused],
+.translation-document [data-translation-block][data-hovered] {
+  background: rgb(97 137 113 / 7%);
+  border-radius: 4px;
+  outline: 1px solid rgb(88 122 104 / 30%);
+  box-shadow: 0 0 0 3px rgb(97 137 113 / 3%);
+}
+.translation-document [data-translation-block][data-search-hit] {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.translation-document [data-translation-block][data-focused],
+.reader-block-hover.reader-block-focus,
+.reader-block-hover[data-block-kind="text"],
+.translation-document [data-block-kind="text"][data-hovered] {
+  background: rgb(128 128 128 / 5%);
+  box-shadow: none;
+}
+.reader-block-hover.reader-block-focus,
+.reader-block-hover[data-block-kind="text"] {
+  border: 0.5px solid rgb(128 128 128 / 22%);
+}
+.translation-document [data-translation-block][data-focused],
+.translation-document [data-block-kind="text"][data-hovered] {
+  outline: 0.5px solid rgb(128 128 128 / 22%);
+}
+:root[data-theme="sepia"] .reader-block-hover[data-block-kind="text"],
+:root[data-theme="sepia"] .reader-block-hover.reader-block-focus,
+:root[data-theme="sepia"]
+  .translation-document
+  :is(
+    [data-translation-block][data-focused],
+    [data-block-kind="text"][data-hovered]
+  ) {
+  background: var(--brand-10);
+}
+:root[data-theme="sepia"] .reader-block-hover[data-block-kind="text"],
+:root[data-theme="sepia"] .reader-block-hover.reader-block-focus {
+  border-color: var(--brand-10);
+}
+:root[data-theme="sepia"]
+  .translation-document
+  :is(
+    [data-translation-block][data-focused],
+    [data-block-kind="text"][data-hovered]
+  ) {
+  outline-color: var(--brand-10);
+}
+
+.reader-sentence-hover-mark {
+  background: rgb(128 128 128 / 22%);
+}
+:root[data-theme="sepia"] .reader-sentence-hover-mark {
+  background: var(--brand-10);
+}
+
+.reader-block-focus[data-fading] {
+  animation: block-focus-fade 180ms ease-out forwards;
+}
+@keyframes block-focus-fade {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .translation-document section {
+    transition: none;
+  }
+  .reader-block-focus[data-fading] {
+    animation-duration: 0s;
+  }
+}
+
+.assistance-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.translation-formula-source {
+  margin-top: 0.5em;
+  font-size: 0.85em;
+  color: var(--muted-foreground);
+}
+.translation-formula-source summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.translation-formula-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.translation-formula-content {
+  min-width: 0;
+  overflow-x: auto;
+}
+.translation-formula-number {
+  white-space: nowrap;
+}
+
+.translation-formula-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8em;
+  color: var(--muted-foreground);
+}
+
+.reader-block-hover:not(.reader-block-focus) {
+  animation: block-hover-in 160ms ease-out;
+}
+@keyframes block-hover-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-block-hover:not(.reader-block-focus) {
+    animation: none;
+  }
+}
+
+/* Older layouts stored algorithms on one line; wrap rather than scroll sideways. */
+.translation-algorithm .message-markdown pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.translation-block-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+[data-translation-block] .translation-block-actions {
+  display: none;
+}
+[data-translation-block]:hover .translation-block-actions,
+[data-translation-block][data-focused] .translation-block-actions,
+[data-translation-block]:focus-within .translation-block-actions {
+  display: flex;
+}
+.translation-edit {
+  display: block;
+  width: 100%;
+  margin: 0.25em 0;
+  padding: 0.35em 0.5em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  resize: vertical;
+  min-height: 4.5em;
+}
