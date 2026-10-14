@@ -252,7 +252,10 @@ func TestFormulaCancellationResumesWithoutSavingPartialResult(t *testing.T) {
 	configureFormulaTest(t, s, images.URL, images.URL)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- s.convertFormulas(ctx, "doc", m) }()
+	go func() {
+		_, err := s.convertFormulas(ctx, "doc", m)
+		done <- err
+	}()
 	waitFormulaSignal(t, started)
 	cancel()
 	if err := <-done; err == nil {
@@ -261,5 +264,246 @@ func TestFormulaCancellationResumesWithoutSavingPartialResult(t *testing.T) {
 	items, _ := s.translations("doc", m)
 	if items[0].Status != "pending" || items[0].FormulaMarkdown != "" {
 		t.Fatalf("partial formula saved: %+v", items[0])
+	}
+}
+
+func TestFormulaCapabilityWaitResumesWithoutFailedBlocks(t *testing.T) {
+	for _, onlyFormula := range []bool{false, true} {
+		name := "text and formula"
+		if onlyFormula {
+			name = "formula only"
+		}
+		t.Run(name, func(t *testing.T) {
+			s, p, m := formulaFixture(t)
+			if onlyFormula {
+				m.Blocks = m.Blocks[:1]
+				data, _ := json.Marshal(m)
+				if err := os.WriteFile(filepath.Join(s.analysisDir("doc"), "manifest.json"), data, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// Changing the primary model invalidates its existing capability proof.
+			config := AIConfig{Primary: "codex", Models: map[string]string{"codex": "old-model"}, Capabilities: map[string]Capability{}}
+			config.Capabilities["codex"] = Capability{Text: true, Vision: true, Fingerprint: configPrint(config, "codex")}
+			config.Models["codex"] = "new-model"
+			if err := s.writeAIConfig(config); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.learnPDF(t.Context(), &p); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.processTranslation(t.Context(), &p); err != nil {
+				t.Fatal(err)
+			}
+			if p.Status != "waiting" || p.Translating.Status != "waiting" {
+				t.Fatalf("unverified model did not wait: %+v", p)
+			}
+			items, err := s.translations("doc", m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, item := range items {
+				if item.Status != "pending" || item.Error != "" {
+					t.Fatalf("configuration wait damaged a block: %+v", item)
+				}
+			}
+			var imageCalls, textCalls atomic.Int32
+			images := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				imageCalls.Add(1)
+				w.Header().Set("Content-Type", "text/event-stream")
+				sendTranslationDelta(w, "$$x=1$$")
+				finishTranslationStream(w)
+			}))
+			defer images.Close()
+			text := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				textCalls.Add(1)
+				w.Header().Set("Content-Type", "text/event-stream")
+				for _, para := range readTranslationInput(t, r).Batch.Paragraphs {
+					sendTranslationDelta(w, translationParagraphLine(para))
+				}
+				finishTranslationStream(w)
+			}))
+			defer text.Close()
+			configureFormulaTest(t, s, text.URL, images.URL)
+			s.wakeProcessing()
+			p, err = s.Store.processing("doc")
+			if err != nil || p.Status != "queued" {
+				t.Fatalf("verified configuration did not wake translation: %+v, %v", p, err)
+			}
+			if err := s.processTranslation(t.Context(), &p); err != nil {
+				t.Fatal(err)
+			}
+			if p.Status != "complete" || p.TranslationsDone != len(m.Blocks) || imageCalls.Load() != 1 {
+				t.Fatalf("wait did not resume: %+v; image calls=%d", p, imageCalls.Load())
+			}
+			if onlyFormula && textCalls.Load() != 0 || !onlyFormula && textCalls.Load() != 1 {
+				t.Fatalf("unexpected text calls: %d", textCalls.Load())
+			}
+		})
+	}
+}
+
+func TestFormulaFailureDoesNotRequeuePendingText(t *testing.T) {
+	s, p, m := formulaFixture(t)
+	var calls atomic.Int32
+	images := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "text/event-stream")
+		sendTranslationDelta(w, "not a formula")
+		finishTranslationStream(w)
+	}))
+	defer images.Close()
+	config := AIConfig{Primary: "codex", Models: map[string]string{}, ImageAPI: APIConnection{URL: images.URL, Model: "test"}, Capabilities: map[string]Capability{}}
+	config.Capabilities["image-api"] = Capability{Text: true, Vision: true, Fingerprint: configPrint(config, "image-api")}
+	if err := s.writeAIConfig(config); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.learnPDF(t.Context(), &p); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.processTranslation(t.Context(), &p); err == nil || !strings.Contains(err.Error(), "公式转换") {
+		t.Fatalf("lost real formula failure: %v", err)
+	}
+	if p.Status != "failed" || p.Translating.Status != "failed" {
+		t.Fatalf("pending text requeued a real failure: %+v", p)
+	}
+	items, err := s.translations("doc", m)
+	if err != nil || items[0].Status != "failed" || items[1].Status != "pending" {
+		t.Fatalf("unexpected saved blocks: %+v, %v", items, err)
+	}
+	s.wakeProcessing()
+	p, err = s.Store.processing("doc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.processTranslation(t.Context(), &p); err == nil || calls.Load() != 1 || p.Status != "failed" {
+		t.Fatalf("failure retried automatically: %+v, %v, calls=%d", p, err, calls.Load())
+	}
+}
+
+func TestFormulaWaitPreservesCompletedText(t *testing.T) {
+	s, p, m := formulaFixture(t)
+	text := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		for _, para := range readTranslationInput(t, r).Batch.Paragraphs {
+			sendTranslationDelta(w, translationParagraphLine(para))
+		}
+		finishTranslationStream(w)
+	}))
+	defer text.Close()
+	configureTranslationTest(t, s, text.URL)
+	if err := s.learnPDF(t.Context(), &p); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.processTranslation(t.Context(), &p); err != nil {
+		t.Fatal(err)
+	}
+	items, err := s.translations("doc", m)
+	if err != nil || items[0].Status != "pending" || items[1].Status != "complete" || p.Status != "waiting" || p.TranslationsDone != 1 {
+		t.Fatalf("vision wait blocked or lost text progress: %+v, %+v, %v", p, items, err)
+	}
+}
+
+func TestFormulaCapabilityWaitPreservesConfigurationWake(t *testing.T) {
+	s, p, _ := formulaFixture(t)
+	p.lane = "translating"
+	if err := s.waitForFormulaCapability(&p); err != nil {
+		t.Fatal(err)
+	}
+	configureFormulaTest(t, s, "http://127.0.0.1:1", "http://127.0.0.1:1")
+	s.wakeProcessing()
+	// The formula worker's wait result may arrive after the successful probe.
+	if err := s.waitForFormulaCapability(&p); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.Store.processing("doc")
+	if err != nil || saved.Status != "queued" {
+		t.Fatalf("late wait overwrote configuration wake: %+v, %v", saved, err)
+	}
+}
+
+func TestFormulaWaitResetsInterruptedBlockToPending(t *testing.T) {
+	s, p, m := formulaFixture(t)
+	item := newTranslation(m.Blocks[0])
+	item.Status = "running"
+	if err := s.saveTranslation("doc", item); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.learnPDF(t.Context(), &p); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.processTranslation(t.Context(), &p); err != nil {
+		t.Fatal(err)
+	}
+	items, err := s.translations("doc", m)
+	if err != nil || p.Status != "waiting" || items[0].Status != "pending" {
+		t.Fatalf("interrupted formula still claims to run: %+v, %+v, %v", p, items, err)
+	}
+}
+
+func TestTranslationFinishingFormulaQueuesNewTextRequest(t *testing.T) {
+	s, p, m := formulaFixture(t)
+	if err := s.learnPDF(t.Context(), &p); err != nil {
+		t.Fatal(err)
+	}
+	idle := newTranslation(m.Blocks[1])
+	idle.Status = "idle"
+	if err := s.saveTranslation("doc", idle); err != nil {
+		t.Fatal(err)
+	}
+	started, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	unblock := func() { once.Do(func() { close(release) }) }
+	images := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		w.Header().Set("Content-Type", "text/event-stream")
+		sendTranslationDelta(w, "$$x=1$$")
+		finishTranslationStream(w)
+	}))
+	defer images.Close()
+	defer unblock()
+	text := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		for _, para := range readTranslationInput(t, r).Batch.Paragraphs {
+			sendTranslationDelta(w, translationParagraphLine(para))
+		}
+		finishTranslationStream(w)
+	}))
+	defer text.Close()
+	configureFormulaTest(t, s, text.URL, images.URL)
+	done := make(chan error, 1)
+	go func() { done <- s.processTranslation(t.Context(), &p) }()
+	waitFormulaSignal(t, started)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		state, err := s.Store.processing("doc")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(state.Detail, "正在完成公式转换") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("text worker did not finish: %+v", state)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	response := request(t, s, "POST", "/api/documents/doc/translations", strings.NewReader(`{"blockId":"`+idle.BlockID+`"}`))
+	if response.Code != 202 {
+		t.Fatalf("new request rejected: %s", response.Body.String())
+	}
+	unblock()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if p.Status != "queued" {
+		t.Fatalf("finishing worker lost new request: %+v", p)
+	}
+	if err := s.processTranslation(t.Context(), &p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Status != "complete" || p.TranslationsDone != 2 {
+		t.Fatalf("new request did not finish: %+v", p)
 	}
 }

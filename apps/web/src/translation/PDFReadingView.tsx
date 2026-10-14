@@ -55,6 +55,7 @@ import { DocumentNotePage } from "../DocumentNotePage";
 import { chapterRange } from "./chapters";
 import { searchPDFBlocks } from "./pdf-search";
 import { PDFTranslationStatus } from "./PDFTranslationStatus";
+import { TranslationJobStatus } from "./TranslationJobStatus";
 
 type Mode = "source" | "parallel" | "translation";
 export function PDFReadingView({
@@ -1021,6 +1022,9 @@ export function PDFReadingView({
                 }}
               >
                 {error && <p role="alert">{error}</p>}
+                {!!visibleBlocks.length && (
+                  <TranslationJobStatus processing={processing} />
+                )}
                 {!visibleBlocks.length && (
                   <PDFTranslationStatus
                     library={doc.library}
@@ -1137,6 +1141,7 @@ export function PDFReadingView({
                           );
                         }}
                         paused={processing?.enabled === false}
+                        processing={processing}
                         linked={linked?.[block.id] ?? []}
                       />
                       {noteIndexes.length > 0 && (
@@ -1190,6 +1195,7 @@ export function PDFReadingView({
                     );
                   }}
                   paused={processing?.enabled === false}
+                  processing={processing}
                 />
                 <Button
                   variant="ghost"

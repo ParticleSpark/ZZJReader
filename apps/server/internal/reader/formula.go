@@ -35,10 +35,10 @@ const formulaPrompt = `你是论文公式转录助手。根据附件图片准确
 
 // One bounded image worker runs independently of text batches. Only complete
 // provider responses are saved; each save publishes through the translation SSE.
-func (s *Server) convertFormulas(ctx context.Context, documentID string, m layoutManifest) error {
+func (s *Server) convertFormulas(ctx context.Context, documentID string, m layoutManifest) (bool, error) {
 	items, err := s.translations(documentID, m)
 	if err != nil {
-		return err
+		return false, err
 	}
 	saved := map[string]TranslationBlock{}
 	for _, t := range items {
@@ -58,17 +58,28 @@ func (s *Server) convertFormulas(ctx context.Context, documentID string, m layou
 			continue
 		}
 		if err := ctx.Err(); err != nil {
-			return err
+			return false, err
+		}
+		service := s.generationService(s.aiConfig())
+		if service.validateCapabilities(true, false) != nil {
+			// No provider has run: keep the formula pending for a real capability
+			// check, independently of completed text and earlier formula failures.
+			if t.Status == "running" {
+				t.Status, t.Error, t.FormulaMarkdown = "pending", "", ""
+				if err := s.saveTranslation(documentID, t); err != nil {
+					return false, err
+				}
+			}
+			return true, errors.Join(failures...)
 		}
 		t.Status = "running"
 		t.Error = ""
 		t.FormulaMarkdown = ""
 		if err = s.saveTranslation(documentID, t); err != nil {
-			return err
+			return false, err
 		}
 		image, callErr := os.ReadFile(filepath.Join(s.analysisDir(documentID), b.Image))
 		if callErr == nil {
-			service := s.generationService(s.aiConfig())
 			service.usageSink = s.processingUsageSink(documentID, "translating", b.ID)
 			call, stop := context.WithTimeout(ctx, 3*time.Minute)
 			result, generateErr := service.Generate(call, AIInput{Prompt: formulaPrompt + b.Text, Image: image}, false, nil)
@@ -90,13 +101,28 @@ func (s *Server) convertFormulas(ctx context.Context, documentID string, m layou
 			t.FormulaMarkdown = ""
 		}
 		if err = s.saveTranslation(documentID, t); err != nil {
-			return err
+			return false, err
 		}
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return false, ctx.Err()
 		}
 	}
-	return errors.Join(failures...)
+	return false, errors.Join(failures...)
+}
+
+func (s *Server) waitForFormulaCapability(p *Processing) error {
+	// Configuration checks wake waiting lanes while holding configMu. Recheck
+	// under that lock so a just-completed check cannot lose its wake-up.
+	s.configMu.Lock()
+	defer s.configMu.Unlock()
+	if s.generationService(s.readAIConfig()).validateCapabilities(true, false) == nil {
+		return nil
+	}
+	s.processingMu.Lock()
+	defer s.processingMu.Unlock()
+	p.Status = "waiting"
+	p.Detail = "请选择主 Agent 并完成图片能力测试，或配置图片备用 API，随后继续转换公式"
+	return s.Store.saveProcessing(*p)
 }
 
 func (s *Server) translateContent(ctx context.Context, p *Processing, input translationInput) error {
@@ -121,8 +147,15 @@ func (s *Server) translateContent(ctx context.Context, p *Processing, input tran
 	if err = s.Store.saveProcessing(*p); err != nil {
 		return err
 	}
-	result := make(chan error, 1)
-	go func() { result <- s.convertFormulas(ctx, p.DocumentID, m) }()
+	type formulaResult struct {
+		waiting bool
+		err     error
+	}
+	result := make(chan formulaResult, 1)
+	go func() {
+		waiting, err := s.convertFormulas(ctx, p.DocumentID, m)
+		result <- formulaResult{waiting, err}
+	}()
 	textErr := s.settleTranslations(ctx, p, m)
 	if textErr == nil && p.Status != "waiting" {
 		p.Detail = "正文翻译已完成，正在完成公式转换"
@@ -130,8 +163,14 @@ func (s *Server) translateContent(ctx context.Context, p *Processing, input tran
 			textErr = err
 		}
 	}
-	formulaErr := <-result
+	formula := <-result
 	items, readErr := s.translations(p.DocumentID, m)
 	p.TranslationsDone, p.TranslationsTotal = translationCounts(items)
-	return errors.Join(textErr, formulaErr, readErr)
+	if err := errors.Join(textErr, formula.err, readErr); err != nil {
+		return err
+	}
+	if formula.waiting && ctx.Err() == nil {
+		return s.waitForFormulaCapability(p)
+	}
+	return nil
 }

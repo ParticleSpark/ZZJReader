@@ -1,5 +1,5 @@
 import { FormulaRow } from "./FormulaRow";
-import type { PDFBlock, TranslationBlock } from "@reader/core";
+import type { PDFBlock, Processing, TranslationBlock } from "@reader/core";
 import { blockImageURL } from "@reader/api";
 import { Button } from "@reader/ui/components/button";
 import { Textarea } from "@reader/ui/components/textarea";
@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { ReadingLinkNavigation } from "../reading-links";
 import { ErrorBoundary } from "../ErrorBoundary";
+import { translationJobStatus } from "./TranslationJobStatus";
 import {
   registerTranslationEditor,
   trackTranslationSave,
@@ -124,6 +125,7 @@ function TranslationContent({
   retranslate,
   onSave,
   paused = false,
+  processing,
   linked = [],
   formulaNumber,
   onCitation,
@@ -146,6 +148,7 @@ function TranslationContent({
     expected: SentenceVersion,
   ) => Promise<void>;
   paused?: boolean;
+  processing?: Processing;
   linked?: number[];
   formulaNumber?: string;
   onCitation?: (blockId: string, label: string) => void;
@@ -223,7 +226,25 @@ function TranslationContent({
   );
   const formula = ["display_formula", "inline_formula"].includes(block.label);
   const idle = translation?.status === "idle";
-  const halted = paused && translation?.status === "pending";
+  const jobStatus = paused ? "paused" : translationJobStatus(processing);
+  const pendingLabel =
+    jobStatus === "paused"
+      ? "翻译已暂停"
+      : jobStatus === "waiting"
+        ? "等待 AI 配置"
+        : jobStatus === "failed"
+          ? "翻译已停止"
+          : jobStatus === "complete"
+            ? "正在同步译文…"
+            : translation?.status === "running" && jobStatus !== "queued"
+              ? formula
+                ? "公式转换中…"
+                : "正在翻译中…"
+              : translation
+                ? formula
+                  ? "等待公式转换"
+                  : "等待翻译"
+                : "正在读取翻译状态…";
   const asset =
     !!block.image || ["table", "chart", "image"].includes(block.label);
   const image = block.image ? (
@@ -294,7 +315,7 @@ function TranslationContent({
                 转换公式
               </Button>
             ) : (
-              <span>{halted ? "翻译已暂停" : "公式转换中…"}</span>
+              <span>{pendingLabel}</span>
             )}
           </div>
         )}
@@ -407,9 +428,7 @@ function TranslationContent({
               ? translation.error || "此段翻译失败"
               : idle
                 ? "未翻译"
-                : halted
-                  ? "翻译已暂停"
-                  : "正在翻译中…"}
+                : pendingLabel}
           </span>
           {(translation?.status === "failed" || idle) && (
             <Button variant="ghost" size="sm" onClick={retry}>

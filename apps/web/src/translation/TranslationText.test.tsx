@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { PDFBlock, TranslationBlock } from "@reader/core";
+import type { PDFBlock, Processing, TranslationBlock } from "@reader/core";
 import { TranslationText } from "./TranslationText";
 let host: HTMLDivElement, root: Root;
 const base: PDFBlock = {
@@ -33,6 +33,7 @@ async function render(
   block: PDFBlock,
   translation?: TranslationBlock,
   formulaNumber?: string,
+  processing?: Processing,
 ) {
   await act(async () =>
     root.render(
@@ -40,6 +41,7 @@ async function render(
         block={block}
         formulaNumber={formulaNumber}
         translation={translation}
+        processing={processing}
         documentId="doc"
         retry={() => {}}
       />,
@@ -62,6 +64,108 @@ async function render(
     });
   }
 }
+it.each(["text", "display_formula"])(
+  "shows actual job state for unfinished %s without claiming queued work is running",
+  async (label) => {
+    const block = {
+      ...base,
+      label,
+      image: label === "text" ? undefined : base.image,
+    };
+    const pending: TranslationBlock = {
+      blockId: block.id,
+      sourceHash: "hash",
+      status: "pending",
+      sentences: [],
+    };
+    const job: Processing = {
+      documentId: "doc",
+      phase: "translating",
+      status: "running",
+      enabled: true,
+      pagesDone: 21,
+      pagesTotal: 21,
+      translationsDone: 0,
+      translationsTotal: 153,
+      detail: "",
+      updatedAt: "2026-10-14T00:00:00Z",
+    };
+    await render(block, pending, undefined, job);
+    expect(host.textContent).toContain(
+      label === "text" ? "等待翻译" : "等待公式转换",
+    );
+    expect(host.textContent).not.toContain("转换中");
+    expect(host.textContent).not.toContain("翻译中");
+    for (const [status, message] of [
+      ["waiting", "等待 AI 配置"],
+      ["failed", "翻译已停止"],
+    ] as const) {
+      await render(block, pending, undefined, {
+        ...job,
+        translating: { status, detail: "主 Agent 尚未通过所需能力测试" },
+      });
+      expect(host.textContent).toContain(message);
+      expect(host.textContent).not.toContain("转换中");
+      expect(host.textContent).not.toContain("翻译中");
+    }
+    await render(block, { ...pending, status: "running" }, undefined, job);
+    expect(host.textContent).toContain(
+      label === "text" ? "正在翻译中" : "公式转换中",
+    );
+    await render(block, { ...pending, status: "running" }, undefined, {
+      ...job,
+      status: "queued",
+    });
+    expect(host.textContent).toContain(
+      label === "text" ? "等待翻译" : "等待公式转换",
+    );
+    expect(host.textContent).not.toContain("转换中");
+    expect(host.textContent).not.toContain("翻译中");
+    await render(block, { ...pending, status: "running" }, undefined, {
+      ...job,
+      enabled: false,
+      status: "paused",
+      translating: { status: "running", detail: "旧状态" },
+    });
+    expect(host.textContent).toContain("翻译已暂停");
+    expect(host.textContent).not.toContain("转换中");
+    expect(host.textContent).not.toContain("翻译中");
+  },
+);
+
+it("preserves completed paragraphs while later work waits or fails and missing records are loading", async () => {
+  const block = { ...base, label: "text", image: undefined };
+  await render(block);
+  expect(host.textContent).toContain("正在读取翻译状态");
+  expect(host.textContent).not.toContain("正在翻译中");
+  for (const status of ["waiting", "failed", "paused"] as const) {
+    await render(
+      block,
+      {
+        blockId: block.id,
+        sourceHash: "hash",
+        status: "complete",
+        sentences: [{ source: "Saved sentence.", target: "保留已完成译文。" }],
+      },
+      undefined,
+      {
+        documentId: "doc",
+        phase: "translating",
+        status,
+        enabled: status !== "paused",
+        pagesDone: 21,
+        pagesTotal: 21,
+        translationsDone: 1,
+        translationsTotal: 153,
+        detail: "",
+        updatedAt: "2026-10-14T00:00:00Z",
+      },
+    );
+    expect(host.textContent).toContain("保留已完成译文。");
+    expect(host.querySelector(".translation-pending")).toBeNull();
+  }
+});
+
 it.each(["table", "chart", "image"])(
   "keeps %s body out of the translation view",
   async (label) => {

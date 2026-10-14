@@ -130,7 +130,11 @@ async function renderView(
   theme: ReaderTheme = defaultTheme,
   extraBlocks: PDFBlock[] = [],
   searchResults: SearchResult[] = [],
-  status?: { processing?: Processing; library?: "papers" | "books" },
+  status?: {
+    processing?: Processing;
+    library?: "papers" | "books";
+    parsed?: boolean;
+  },
 ) {
   await act(async () =>
     root.render(
@@ -143,7 +147,7 @@ async function renderView(
         searchResults={searchResults}
         processing={status?.processing}
         blocks={
-          status
+          status && !status.parsed
             ? []
             : [
                 {
@@ -581,10 +585,61 @@ it("renders an incoming paragraph while the subscription remains open", async ()
       data: [{ ...block, status: "pending", sentences: [] }],
     }),
   );
-  expect(host.textContent).toContain("正在翻译中");
+  expect(host.textContent).toContain("等待翻译");
   expect(host.textContent).not.toContain("优先翻译");
   await act(async () => fixture.push!({ event: "translation", data: block }));
   expect(host.textContent).toContain("第一句。");
+  expect(fixture.signal!.aborted).toBe(false);
+});
+
+it("shows blocked translation reasons after parsing and updates pending paragraphs without losing completed text", async () => {
+  await click("原文译文");
+  const extra: PDFBlock = {
+    id: "p1-b2",
+    page: 1,
+    label: "text",
+    text: "Untranslated paragraph.",
+    bounds: { x: 0.1, y: 0.6, width: 0.3, height: 0.2 },
+  };
+  await act(async () =>
+    fixture.push!({
+      event: "translation",
+      data: {
+        blockId: extra.id,
+        sourceHash: "pending",
+        status: "pending",
+        sentences: [],
+      },
+    }),
+  );
+  for (const [status, label] of [
+    ["waiting", "等待 AI 配置"],
+    ["failed", "翻译已停止"],
+  ] as const) {
+    await renderView(defaultTheme, [extra], [], {
+      parsed: true,
+      processing: {
+        ...processing,
+        phase: "translating",
+        status: "running",
+        pagesDone: 21,
+        pagesTotal: 21,
+        translating: { status, detail: "主 Agent 尚未通过所需能力测试" },
+      },
+    });
+    const pane = host.querySelector(".translation-document")!;
+    expect(pane.textContent).toContain("第一句。");
+    expect(
+      pane.querySelector('[data-translation-block="p1-b2"]')?.textContent,
+    ).toContain(label);
+    expect(pane.textContent).not.toContain("正在翻译中");
+    const notice = pane.querySelector(".translation-warning")!;
+    expect(notice.textContent).toContain("主 Agent 尚未通过所需能力测试");
+    expect(notice.textContent).toContain(
+      status === "waiting" ? "设置中的 AI 连接和能力测试" : "工具栏重试翻译",
+    );
+    expect(pane.querySelectorAll(".translation-warning")).toHaveLength(1);
+  }
   expect(fixture.signal!.aborted).toBe(false);
 });
 

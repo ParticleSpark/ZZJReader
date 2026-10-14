@@ -15,6 +15,7 @@ import {
 import { Button } from "@reader/ui/components/button";
 import { toast } from "sonner";
 import type { PageRange } from "./chapters";
+import { translationJobStatus } from "./TranslationJobStatus";
 
 type Action = "start" | "pause" | "resume" | "chapter";
 
@@ -61,11 +62,13 @@ export function AssistanceControls({
       serial.current++;
     };
   }, [documentId]);
-  const complete = job?.status === "complete";
+  const failed =
+    job?.status === "failed" || translationJobStatus(job) === "failed";
+  const complete = job?.status === "complete" && !failed;
   const retranslateLabel =
     library === "books" || epubChapter ? "重新翻译已请求章节" : "重新翻译全文";
   const [action, label]: [Action, string] =
-    job?.enabled && job.status === "failed"
+    job?.enabled && failed
       ? ["resume", "重试翻译"]
       : job?.enabled && !complete
         ? ["pause", "暂停翻译"]
@@ -134,7 +137,7 @@ export function AssistanceControls({
       >
         {action === "pause" ? (
           <Pause />
-        ) : action === "resume" && job?.status === "failed" ? (
+        ) : action === "resume" && failed ? (
           <RotateCcw />
         ) : (
           <Sparkles />

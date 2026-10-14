@@ -149,20 +149,30 @@ it("a book translates the current chapter instead of the whole document", async 
   expect(host.textContent).toContain("暂停翻译");
 });
 
-it("a failed paper job offers a retry", async () => {
-  await render(1, { ...paused, enabled: true, status: "failed" });
-  expect(host.textContent).toContain("重试翻译");
-  vi.mocked(api.setAssistance).mockResolvedValue({
-    ...paused,
-    enabled: true,
-    status: "queued",
-    updatedAt: "2026-10-07T00:00:01Z",
-  });
-  await act(async () =>
-    host.querySelector<HTMLButtonElement>("button")!.click(),
-  );
-  expect(api.setAssistance).toHaveBeenCalledWith("book", "resume");
-});
+it.each([false, true])(
+  "a failed paper job offers a retry (translation substage: %s)",
+  async (substage) => {
+    await render(1, {
+      ...paused,
+      enabled: true,
+      status: substage ? "running" : "failed",
+      translating: substage
+        ? { status: "failed", detail: "连接失败" }
+        : undefined,
+    });
+    expect(host.textContent).toContain("重试翻译");
+    vi.mocked(api.setAssistance).mockResolvedValue({
+      ...paused,
+      enabled: true,
+      status: "queued",
+      updatedAt: "2026-10-07T00:00:01Z",
+    });
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>("button")!.click(),
+    );
+    expect(api.setAssistance).toHaveBeenCalledWith("book", "resume");
+  },
+);
 
 it("EPUB legacy jobs request a chapter without restarting old whole-book work", async () => {
   const location = { type: "epub" as const, href: "a.xhtml#two" };

@@ -83,9 +83,14 @@ func (s *Server) processTranslation(ctx context.Context, p *Processing) error {
 		work.Status, work.Detail = "complete", "已完成"
 	}
 	s.processingMu.Lock()
-	if ctx.Err() == nil && work.Status != "waiting" {
+	// Catch requests added as the successful worker exits. Existing pending
+	// paragraphs must never turn a real failure into an automatic retry loop.
+	if ctx.Err() == nil && runErr == nil && work.Status == "complete" {
 		items, readErr := s.translations(work.DocumentID, m)
-		if readErr == nil {
+		if readErr != nil {
+			runErr = readErr
+			work.Status, work.Detail = "failed", readErr.Error()
+		} else {
 			for _, item := range items {
 				if item.Status == "pending" || item.Status == "running" {
 					work.Status, work.Detail = "queued", "等待继续翻译"

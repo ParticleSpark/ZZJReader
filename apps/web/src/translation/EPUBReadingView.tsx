@@ -1,4 +1,5 @@
 import { useTranslations } from "./useTranslations";
+import { TranslationJobStatus } from "./TranslationJobStatus";
 import {
   useEffect,
   useRef,
@@ -17,7 +18,6 @@ import type {
 } from "@reader/core";
 import { api, publicationURL } from "@reader/api";
 import { Tabs, TabsList, TabsTrigger } from "@reader/ui/components/tabs";
-import { Button } from "@reader/ui/components/button";
 import { toast } from "sonner";
 import { ReaderView } from "../ReaderView";
 import { AssistanceControls } from "./AssistanceControls";
@@ -558,27 +558,19 @@ export function EPUBReadingView({
                 );
               }}
             >
-              {(error ||
-                streamError ||
-                processing?.status === "waiting" ||
-                processing?.status === "failed") && (
+              {(error || streamError) && (
                 <div className="translation-warning">
-                  {error || streamError || processing?.detail}
-                  {processing?.status === "failed" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        void api
-                          .setAssistance(doc.id, "resume")
-                          .catch((e) => toast.error(e.message))
-                      }
-                    >
-                      重试翻译
-                    </Button>
-                  )}
+                  {error || streamError}
                 </div>
               )}
+              <TranslationJobStatus
+                processing={processing}
+                retry={() =>
+                  void api
+                    .setAssistance(doc.id, "resume")
+                    .catch((e) => toast.error(e.message))
+                }
+              />
               {!blocks.length && (
                 <p className="translation-warning">
                   {error ||
@@ -606,6 +598,7 @@ export function EPUBReadingView({
                       (t) => t.blockId === block.id,
                     )}
                     paused={processing?.enabled === false}
+                    processing={processing}
                     retry={() => retry(block.id)}
                     retranslate={() => retry(block.id, true)}
                     onSave={async (index, target, expected) => {

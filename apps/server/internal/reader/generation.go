@@ -386,10 +386,13 @@ func (g *GenerationService) generate(ctx context.Context, in AIInput, interactiv
 }
 
 func (g *GenerationService) ValidateInput(in AIInput, interactive bool) error {
+	return g.validateCapabilities(len(in.images()) > 0, interactive)
+}
+
+func (g *GenerationService) validateCapabilities(vision, interactive bool) error {
 	if !validAgent(g.primary) {
 		return generationError(ErrorConfiguration, "请选择主 Agent")
 	}
-	vision := len(in.images()) > 0
 	p := g.connections[g.primary]
 	if p.VerifiedText && (!vision || p.VerifiedVision) || interactive && !vision && g.primary != "kimi" && g.primary != "api" {
 		return nil
