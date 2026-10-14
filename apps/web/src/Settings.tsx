@@ -230,7 +230,10 @@ export function Settings({
             !config.capabilities[provider.id].pendingVision
           )
             return false;
-          const key = JSON.stringify([provider.id, config.models[provider.id]]);
+          const key = JSON.stringify([
+            provider.id,
+            config.models[provider.id] ?? "",
+          ]);
           if (!force && checked.current.has(key)) return false;
           checked.current.add(key);
           return true;
@@ -274,9 +277,22 @@ export function Settings({
       setLoading(false);
     }
   };
+  const cliModelRevision = JSON.stringify([
+    config?.models.codex ?? "",
+    config?.models.claude ?? "",
+    config?.models.kimi ?? "",
+  ]);
   useEffect(() => {
+    // A model change invalidates its saved CLI check. Forget earlier choices,
+    // including while closed, so switching back can test that model again.
+    for (const id of ["codex", "claude", "kimi"]) {
+      const key = JSON.stringify([id, config?.models[id] ?? ""]);
+      for (const previous of checked.current)
+        if (previous.startsWith(`["${id}",`) && previous !== key)
+          checked.current.delete(previous);
+    }
     if (open) void refresh();
-  }, [open]);
+  }, [open, cliModelRevision]);
   const checkModel = async (model: AgentModel) => {
     const snapshot = useReaderStore.getState().aiConfig;
     if (!snapshot) return;
@@ -323,7 +339,21 @@ export function Settings({
           !errors[`${id}:text`] &&
           !errors[`${id}:${kind}`] &&
           !!capability?.[kind];
-        const state = pending ? "pending" : ready ? "passed" : "failed";
+        const untested = !capability && !error && !errors[`${id}:text`];
+        const status = pending
+          ? "检测中"
+          : ready
+            ? "已通过"
+            : untested
+              ? "未检测"
+              : "未通过";
+        const state = pending
+          ? "pending"
+          : ready
+            ? "passed"
+            : untested
+              ? "untested"
+              : "failed";
         const apiModel = id.startsWith("api:");
         return (
           <div
@@ -331,7 +361,7 @@ export function Settings({
             className="agent-check-status"
             role="status"
             aria-live="polite"
-            aria-label={`${label}：${pending ? "检测中" : ready ? "已通过" : "未通过"}`}
+            aria-label={`${label}：${status}`}
           >
             <span className="agent-check-icon" key={state} data-state={state}>
               {pending ? (
@@ -343,18 +373,20 @@ export function Settings({
                   <TooltipTrigger
                     render={<Button variant="ghost" size="icon" />}
                     className="size-4 p-0 text-inherit hover:bg-transparent hover:text-inherit"
-                    aria-label={`${label}未通过：查看详情`}
+                    aria-label={`${label}${status}：查看详情`}
                   >
-                    <TriangleAlert />
+                    {untested ? <CircleHelp /> : <TriangleAlert />}
                   </TooltipTrigger>
                   <TooltipContent className="block max-w-xs space-y-2 leading-5 break-words">
                     <p>
                       {error ||
-                        (capability?.text
-                          ? "文本推理可用，图片理解未通过检测。"
-                          : apiModel
-                            ? "检测未通过，请检查 API 地址、Key、模型名称、网络或额度。"
-                            : "检测未通过，请检查终端中的 Agent、API 配置、网络或额度。")}
+                        (untested
+                          ? "当前模型尚未检测，请点击上方「重新检测 Agent」。检测通过后，等待连接的翻译任务会继续。"
+                          : capability?.text
+                            ? "文本推理可用，图片理解未通过检测。"
+                            : apiModel
+                              ? "检测未通过，请检查 API 地址、Key、模型名称、网络或额度。"
+                              : "检测未通过，请检查终端中的 Agent、API 配置、网络或额度。")}
                     </p>
                     {!capability?.text && !apiModel && (
                       <p>
@@ -366,7 +398,10 @@ export function Settings({
                 </Tooltip>
               )}
             </span>
-            <span>{label}</span>
+            <span>
+              {label}
+              {!pending && untested ? " · 未检测" : ""}
+            </span>
           </div>
         );
       })}
@@ -749,7 +784,7 @@ export function Settings({
                   size="icon-sm"
                   aria-label="重新检测 Agent"
                   title="重新检测 Agent"
-                  disabled={loading || testing.size > 0}
+                  disabled={loading || aiModelSaving || testing.size > 0}
                   onClick={() => void refresh(true)}
                 >
                   <RefreshCw className={loading ? "animate-spin" : ""} />
@@ -762,7 +797,9 @@ export function Settings({
                   </label>
                   <Select
                     value={config.primary || null}
-                    disabled={saving || aiModelSaving || testing.size > 0}
+                    disabled={
+                      loading || saving || aiModelSaving || testing.size > 0
+                    }
                     onValueChange={async (value) => {
                       if (!value) return;
                       setSaving(true);
@@ -805,7 +842,9 @@ export function Settings({
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                  <TaskModels disabled={saving || testing.size > 0} />
+                  <TaskModels
+                    disabled={loading || saving || testing.size > 0}
+                  />
                   <p className="text-xs leading-5 text-muted-foreground">
                     {config.primary === "api"
                       ? "只列出通过检测的模型：问答与翻译需通过文本推理，图片需通过图片理解。公式转换与主动图片提问使用图片模型。"

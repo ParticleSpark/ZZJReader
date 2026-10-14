@@ -6,10 +6,11 @@ import { api } from "@reader/api";
 import type { AIConfig, AgentModel } from "@reader/core";
 import { ModelSelector, selectedAgentModel } from "./ModelSelector";
 import { useReaderStore } from "./store";
+import { toast } from "sonner";
 vi.mock("@reader/api", () => ({
   api: { agentModels: vi.fn(), aiConfig: vi.fn(), saveAIConfig: vi.fn() },
 }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn() } }));
 // Branding has its own tests. Keep model interactions independent of Lobe's
 // avatar style runtime, while exercising the real Base UI popover/select/slider.
 vi.mock("./ProviderIdentity", () => ({ ProviderIcon: () => <span /> }));
@@ -115,6 +116,10 @@ it("saves the selected model while preserving the latest SDK and API configurati
     "Model B",
   );
   expect(useReaderStore.getState().aiModelSaving).toBe(false);
+  expect(toast.info).toHaveBeenCalledExactlyOnceWith(
+    "模型已更换，请在设置中重新检测 Agent 后继续问答与翻译。",
+    { action: { label: "打开设置", onClick: onSettings } },
+  );
 });
 it("keeps the previous model after a failed save", async () => {
   vi.mocked(api.saveAIConfig).mockRejectedValue(new Error("save failed"));
@@ -125,6 +130,7 @@ it("keeps the previous model after a failed save", async () => {
   );
   expect(useReaderStore.getState().aiConfig?.models.codex).toBe("model-a");
   expect(useReaderStore.getState().aiModelSaving).toBe(false);
+  expect(toast.info).not.toHaveBeenCalled();
 });
 it("rejects a model save when the SDK changed elsewhere", async () => {
   await render();

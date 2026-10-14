@@ -148,12 +148,15 @@ export function ModelSelector({
         setAIConfig(latest);
         throw new Error("Agent SDK 已改变，请重新选择模型");
       }
-      setAIConfig(
-        await api.saveAIConfig({
-          ...latest,
-          models: { ...latest.models, [provider]: value },
-        }),
-      );
+      const saved = await api.saveAIConfig({
+        ...latest,
+        models: { ...latest.models, [provider]: value },
+      });
+      setAIConfig(saved);
+      if (provider !== "api" && !saved.capabilities[provider])
+        toast.info("模型已更换，请在设置中重新检测 Agent 后继续问答与翻译。", {
+          action: { label: "打开设置", onClick: onSettings },
+        });
     } catch (error) {
       toast.error((error as Error).message);
     } finally {

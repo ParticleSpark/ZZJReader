@@ -219,3 +219,71 @@ it("does not show old green checks after a text retry disconnects", async () => 
   expect(host.querySelector('[aria-label="文本推理：未通过"]')).not.toBeNull();
   expect(host.querySelector('[aria-label="图片理解：已通过"]')).toBeNull();
 });
+
+it("checks a changed CLI model and checks it again after switching back", async () => {
+  config.models = { codex: "model-a" };
+  const failed = { ...passed, text: false, vision: false, error: "登录失效" };
+  config.capabilities.claude = failed;
+  vi.mocked(api.providers).mockResolvedValue([
+    { id: "codex", installed: true, authenticated: true, status: "已登录" },
+    { id: "claude", installed: true, authenticated: false, status: "登录失效" },
+  ]);
+  vi.mocked(api.testAI).mockImplementation(async (id) => {
+    config = {
+      ...config,
+      capabilities: { ...config.capabilities, [id]: passed },
+    };
+    return passed;
+  });
+  await render();
+  expect(api.testAI).toHaveBeenCalledTimes(2);
+  const saveModel = async (model: string) => {
+    const { codex: _, ...capabilities } = config.capabilities;
+    config = { ...config, models: { codex: model }, capabilities };
+    await act(async () => useReaderStore.getState().setAIConfig(config));
+  };
+  await saveModel("model-b");
+  expect(api.testAI).toHaveBeenCalledTimes(4);
+  await saveModel("model-a");
+  expect(api.testAI).toHaveBeenCalledTimes(6);
+  expect(host.querySelector('[aria-label="文本推理：已通过"]')).not.toBeNull();
+
+  await render(false);
+  await saveModel("model-b");
+  await saveModel("model-a");
+  expect(api.testAI).toHaveBeenCalledTimes(6);
+  await render();
+  expect(api.testAI).toHaveBeenCalledTimes(8);
+  await render();
+  expect(api.testAI).toHaveBeenCalledTimes(8);
+  expect(vi.mocked(api.testAI).mock.calls.every(([id]) => id === "codex")).toBe(
+    true,
+  );
+  expect(config.capabilities.claude).toEqual(failed);
+});
+
+it("does not repeat CLI checks for translation choices or saved failed checks", async () => {
+  config.capabilities.codex = {
+    ...passed,
+    text: false,
+    vision: false,
+    error: "连接失败",
+  };
+  await render();
+  config = { ...config, translationModels: { codex: "translation-model" } };
+  await act(async () => useReaderStore.getState().setAIConfig(config));
+  await render(false);
+  await render();
+  expect(api.testAI).not.toHaveBeenCalled();
+});
+
+it("distinguishes an untested model from a failed capability check", async () => {
+  config.capabilities.codex = passed;
+  await render();
+  config = { ...config, capabilities: {} };
+  await act(async () => useReaderStore.getState().setAIConfig(config));
+  expect(host.querySelector('[aria-label="文本推理：未检测"]')).not.toBeNull();
+  expect(host.textContent).toContain("文本推理 · 未检测");
+  expect(host.querySelector('[aria-label="文本推理：未通过"]')).toBeNull();
+  expect(api.testAI).not.toHaveBeenCalled();
+});
