@@ -142,6 +142,8 @@ export interface PaperLibraryProps {
   trash: Document[];
   jobs: Map<string, Processing>;
   loading: boolean;
+  error?: string;
+  onRetry?: () => void;
   openDocument: (doc: Document) => void;
   moveToBooks: (doc: Document) => void;
   navOpen: boolean;
@@ -156,6 +158,8 @@ export function PaperLibrary({
   trash,
   jobs,
   loading,
+  error,
+  onRetry,
   openDocument,
   moveToBooks,
   navOpen,
@@ -804,8 +808,30 @@ export function PaperLibrary({
                 </div>
               </div>
             )}
-            {loading ? (
-              <div className="empty-state">
+            {error && (
+              <div
+                role="alert"
+                className={documents.length ? "space-y-2 pb-4" : "empty-state"}
+              >
+                <h2 className="text-sm font-medium">暂时无法读取论文库</h2>
+                <p className="text-sm text-muted-foreground">{error}</p>
+                {onRetry && (
+                  <Button
+                    variant="outline"
+                    disabled={loading}
+                    onClick={onRetry}
+                  >
+                    {loading ? "正在读取…" : "重新读取"}
+                  </Button>
+                )}
+              </div>
+            )}
+            {loading && !documents.length && !error ? (
+              <div
+                className="empty-state"
+                role="status"
+                aria-label="正在读取论文库"
+              >
                 <Loader2 className="animate-spin text-muted-foreground" />
               </div>
             ) : visible.length ? (
@@ -930,7 +956,7 @@ export function PaperLibrary({
                   )}
                 </div>
               )
-            ) : (
+            ) : !loading && !error ? (
               <div className="empty-state">
                 <h2>{documents.length ? "没有符合条件的论文" : "暂无论文"}</h2>
                 {documents.length > 0 && (query || view !== "all") && (
@@ -945,7 +971,7 @@ export function PaperLibrary({
                   </Button>
                 )}
               </div>
-            )}
+            ) : null}
           </section>
           {selected && !picking && (
             <>

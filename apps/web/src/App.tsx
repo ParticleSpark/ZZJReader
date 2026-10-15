@@ -60,6 +60,7 @@ import { filterDocuments, initialFilters } from "./library";
 import { GuideHost } from "./guide/GuideHost";
 import { activateReaderTab, closeReaderTab } from "./reader-tabs";
 import { saveReaderSettings } from "./reader-settings";
+import { useLibraryLoad } from "./useLibraryLoad";
 const currentMode = () =>
   libraryMode(useReaderStore.getState().libraryPreferences);
 export function App() {
@@ -94,24 +95,44 @@ export function App() {
   const [commandQuery, setCommandQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [largePapers, setLargePapers] = useState<LargePaper[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const {
+    loading,
+    initialized,
+    error,
+    retry: reloadLibrary,
+    clearError,
+  } = useLibraryLoad();
   const [command, setCommand] = useState(false);
   const [importingPaper, setImportingPaper] = useState(false);
   const [nav, setNav] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
+  const [preferencesSettled, setPreferencesSettled] = useState(false);
+  const libraryPreferencesLoaded = useRef(false);
   useEffect(() => {
-    Promise.all([
-      refreshLibrary(),
-      loadLibraryPreferences(),
-      api.settings().then((value) => setTheme(value)),
-    ])
-      .catch((e) => setError(e.message))
-      .finally(() => {
-        setLoading(false);
+    let active = true;
+    void Promise.allSettled([
+      loadLibraryPreferences()
+        .then(() => {
+          if (active) libraryPreferencesLoaded.current = true;
+        })
+        .finally(() => {
+          if (active) setPreferencesSettled(true);
+        }),
+      api.settings().then((value) => {
+        if (!active) return;
         hydrated.current = true;
-      });
+        setTheme(value);
+      }),
+    ]).then((results) => {
+      if (!active) return;
+      for (const result of results)
+        if (result.status === "rejected")
+          toast.error(`读取书库偏好失败：${String(result.reason)}`);
+    });
+    return () => {
+      active = false;
+    };
   }, [setTheme]);
   useEffect(() => {
     if (loading) return;
@@ -180,15 +201,27 @@ export function App() {
     }
   };
   useEffect(() => {
-    if (loading) return;
+    if (!initialized || !preferencesSettled) return;
+    let preferencesRetry: Promise<void> | undefined;
+    const ensurePreferences = () => {
+      if (libraryPreferencesLoaded.current) return Promise.resolve();
+      return (preferencesRetry ??= loadLibraryPreferences()
+        .then(() => {
+          libraryPreferencesLoaded.current = true;
+        })
+        .finally(() => {
+          preferencesRetry = undefined;
+        }));
+    };
     return window.readerDesktop?.onOpenLink?.((target) => {
-      void openLinkTarget(target)
+      void ensurePreferences()
+        .then(() => openLinkTarget(target))
         .then((found) => {
           if (!found) toast.error("找不到这份文档，它可能已被删除或在回收站中");
         })
         .catch((e) => toast.error((e as Error).message));
     });
-  }, [loading]);
+  }, [initialized, preferencesSettled]);
   useEffect(
     () =>
       window.readerDesktop?.onLibraryChanged(() => {
@@ -251,7 +284,7 @@ export function App() {
         );
       const imported = accepted.length - elsewhere.length - large.length;
       if (imported > 0) toast.success(`已导入 ${imported} 个文件`);
-      setError("");
+      clearError();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -585,6 +618,8 @@ export function App() {
                   trash={trash}
                   jobs={jobsById}
                   loading={loading}
+                  error={error}
+                  onRetry={reloadLibrary}
                   openDocument={openDocument}
                   moveToBooks={(doc) => void moveDocument(doc, "books")}
                   navOpen={nav}
@@ -670,10 +705,7 @@ export function App() {
                       <div className="empty-state">
                         <h2>暂时无法连接本地书库</h2>
                         <p>{error}</p>
-                        <Button
-                          variant="outline"
-                          onClick={() => location.reload()}
-                        >
+                        <Button variant="outline" onClick={reloadLibrary}>
                           重新连接
                         </Button>
                       </div>

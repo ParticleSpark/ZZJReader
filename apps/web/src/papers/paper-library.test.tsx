@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "@reader/api";
 import type { Document, Processing } from "@reader/core";
 import { useReaderStore } from "../store";
-import { PaperLibrary } from "./PaperLibrary";
+import { PaperLibrary, type PaperLibraryProps } from "./PaperLibrary";
 import { PaperSidebar } from "./PaperSidebar";
 import { usePaperUI } from "./state";
 import { paper } from "./fixtures";
@@ -46,7 +46,11 @@ const docs: Document[] = [
 let root: Root, host: HTMLDivElement;
 const open = vi.fn();
 let jobs = new Map<string, Processing>();
-function Harness() {
+function Harness({
+  loading = false,
+  error,
+  onRetry,
+}: Partial<Pick<PaperLibraryProps, "loading" | "error" | "onRetry">>) {
   const documents = useReaderStore((s) => s.documents);
   return (
     <>
@@ -61,7 +65,9 @@ function Harness() {
         documents={documents}
         trash={[]}
         jobs={jobs}
-        loading={false}
+        loading={loading}
+        error={error}
+        onRetry={onRetry}
         openDocument={open}
         moveToBooks={() => {}}
         navOpen
@@ -119,6 +125,60 @@ const button = (label: string) =>
   [...host.querySelectorAll<HTMLButtonElement>("button")].find(
     (b) => b.textContent?.trim() === label,
   )!;
+
+it("only shows an empty library after loading succeeds", async () => {
+  await act(async () => {
+    useReaderStore.setState({ documents: [] });
+    root.render(<Harness loading />);
+  });
+  expect(
+    host.querySelector('[role="status"]')?.getAttribute("aria-label"),
+  ).toBe("正在读取论文库");
+  expect(host.textContent).not.toContain("暂无论文");
+  await act(async () => root.render(<Harness />));
+  expect(host.textContent).toContain("暂无论文");
+});
+
+it("shows a failed library read and lets the user retry", async () => {
+  const retry = vi.fn();
+  await act(async () => {
+    useReaderStore.setState({ documents: [] });
+    root.render(<Harness error="无法读取书库" onRetry={retry} />);
+  });
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+    "暂时无法读取论文库",
+  );
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+    "无法读取书库",
+  );
+  expect(host.textContent).not.toContain("暂无论文");
+  await act(async () => button("重新读取").click());
+  expect(retry).toHaveBeenCalledOnce();
+  await act(async () =>
+    root.render(<Harness loading error="无法读取书库" onRetry={retry} />),
+  );
+  expect(button("正在读取…").disabled).toBe(true);
+  expect(host.textContent).not.toContain("暂无论文");
+  await act(async () => {
+    useReaderStore.setState({ documents: docs });
+    root.render(<Harness />);
+  });
+  expect(host.querySelector('[role="alert"]')).toBeNull();
+  expect(row("Attention Is All You Need")).not.toBeNull();
+});
+
+it.each([false, true])(
+  "keeps known papers visible when a read fails (loading=%s)",
+  async (loading) => {
+    await act(async () =>
+      root.render(<Harness loading={loading} error="无法读取书库" />),
+    );
+    expect(host.querySelector('[role="alert"]')).not.toBeNull();
+    expect(row("Attention Is All You Need")).not.toBeNull();
+    expect(row("Graph Attention Networks")).not.toBeNull();
+    expect(host.textContent).not.toContain("暂无论文");
+  },
+);
 
 it("bands neighboring papers and colors sidebar icons by kind", () => {
   expect(row("Attention Is All You Need").dataset.band).toBe("shallow");
