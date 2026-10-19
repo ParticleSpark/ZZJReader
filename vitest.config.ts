@@ -1,6 +1,14 @@
 import { defineConfig } from "vitest/config";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const root = fileURLToPath(new URL(".", import.meta.url));
+// Linked node_modules can resolve outside a worktree. Allow that dependency
+// directory without disabling Vite's filesystem boundary for the test server.
+const dependencies = realpathSync(new URL("./node_modules", import.meta.url));
 
 export default defineConfig({
+  server: { fs: { allow: [root, dependencies] } },
   test: {
     // The default 5s is too tight for the full suite on CI runners.
     testTimeout: 10_000,
