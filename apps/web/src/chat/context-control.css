@@ -1,3 +1,7 @@
+.chat-compose {
+  container-name: assistant-composer;
+  container-type: inline-size;
+}
 .compose-footer.assistant-compose-footer {
   gap: 6px;
 }
@@ -31,4 +35,9 @@
 }
 .assistant-compose-footer > button {
   flex-shrink: 0;
+}
+@container assistant-composer (max-width: 260px) {
+  .compose-context-options .model-trigger-effort {
+    display: none;
+  }
 }

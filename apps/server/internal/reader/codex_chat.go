@@ -51,7 +51,11 @@ func (c *codexChatCache) acquire(root, model string, in AIInput) (*codexSession,
 	executable, _ := exec.LookPath("codex")
 	// Rebuild when full-document mode is toggled or its parsed source changes.
 	// A provider thread cannot forget a previously supplied full document.
-	key := executable + "\x00" + model + "\x00" + in.Effort + "\x00" + chat.Title + "\x00" + chat.FullDocumentSource
+	tier := "inherit"
+	if in.ServiceTier != nil {
+		tier = "override:" + *in.ServiceTier
+	}
+	key := executable + "\x00" + model + "\x00" + in.Effort + "\x00" + tier + "\x00" + chat.Title + "\x00" + chat.FullDocumentSource
 	e := c.entry
 	if e != nil && (e.key != key || e.document != chat.DocumentID || e.savedID != chat.PriorID || e.pending != nil || e.turns >= 64 || e.sourceBytes >= 256000) {
 		c.discardLocked()

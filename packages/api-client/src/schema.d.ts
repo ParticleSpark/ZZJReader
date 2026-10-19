@@ -3174,6 +3174,8 @@ export interface components {
                     [key: string]: components["schemas"]["ReasoningEffort"];
                 };
             };
+            /** @description Request Codex fast service tier for AI reading, independently of reasoning effort. Defaults to false; omitted updates preserve the saved choice. */
+            codexFastMode?: boolean;
             /** @description Translation model by provider. Empty uses the provider's fast-tier recommendation. */
             translationModels?: {
                 [key: string]: string;

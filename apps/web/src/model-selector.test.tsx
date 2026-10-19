@@ -97,6 +97,110 @@ afterEach(async () => {
   host.remove();
   vi.unstubAllGlobals();
 });
+it("saves fast mode independently of effort and restores the saved indicator", async () => {
+  config = { ...config, efforts: { codex: { "model-a": "high" } } };
+  useReaderStore.setState({ aiConfig: config });
+  await render();
+  await openEffort();
+  const button = document.querySelector(
+    '[aria-label="快速模式"]',
+  ) as HTMLButtonElement;
+  expect(button.getAttribute("aria-pressed")).toBe("false");
+  await act(async () => button.click());
+  expect(api.saveAIConfig).toHaveBeenCalledWith({
+    ...config,
+    codexFastMode: true,
+  });
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  expect(host.querySelector('[aria-label="快速模式已开启"]')).not.toBeNull();
+  expect(useReaderStore.getState().aiConfig?.efforts).toEqual(config.efforts);
+  expect(useReaderStore.getState().aiModelSaving).toBe(false);
+  config = useReaderStore.getState().aiConfig!;
+  await act(async () => button.click());
+  expect(api.saveAIConfig).toHaveBeenLastCalledWith({
+    ...config,
+    codexFastMode: false,
+  });
+  expect(button.getAttribute("aria-pressed")).toBe("false");
+});
+
+it("keeps the saved fast choice when saving fails and unlocks the model controls", async () => {
+  config = { ...config, codexFastMode: true };
+  useReaderStore.setState({ aiConfig: config });
+  vi.mocked(api.saveAIConfig).mockRejectedValueOnce(new Error("save failed"));
+  await render();
+  await openEffort();
+  const button = document.querySelector(
+    '[aria-label="快速模式"]',
+  ) as HTMLButtonElement;
+  await act(async () => button.click());
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  expect(useReaderStore.getState().aiConfig?.codexFastMode).toBe(true);
+  expect(useReaderStore.getState().aiModelSaving).toBe(false);
+  expect(toast.error).toHaveBeenCalledWith("save failed");
+});
+
+it("serializes fast mode saving with model and effort changes", async () => {
+  let finish!: (value: AIConfig) => void;
+  vi.mocked(api.saveAIConfig).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await render();
+  await openEffort();
+  const button = document.querySelector(
+    '[aria-label="快速模式"]',
+  ) as HTMLButtonElement;
+  await act(async () => button.click());
+  expect(button.disabled).toBe(true);
+  expect(button.getAttribute("aria-busy")).toBe("true");
+  expect(
+    (document.querySelector('input[type="range"]') as HTMLInputElement)
+      .disabled,
+  ).toBe(true);
+  expect(
+    document.querySelector(".model-fast-description")?.textContent,
+  ).toContain("正在保存");
+  await act(async () => finish({ ...config, codexFastMode: true }));
+  expect(button.disabled).toBe(false);
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+});
+
+it("rejects stale fast settings when the model changed elsewhere", async () => {
+  await render();
+  await openEffort();
+  config = { ...config, models: { ...config.models, codex: "model-b" } };
+  await act(async () =>
+    (
+      document.querySelector('[aria-label="快速模式"]') as HTMLButtonElement
+    ).click(),
+  );
+  expect(api.saveAIConfig).not.toHaveBeenCalled();
+  expect(toast.error).toHaveBeenCalledWith("模型已改变，请重新设置快速模式");
+  expect(useReaderStore.getState().aiModelSaving).toBe(false);
+});
+
+it.each(["claude", "kimi", "api"])(
+  "does not offer a fake fast switch for %s",
+  async (provider) => {
+    config = { ...config, primary: provider, codexFastMode: true };
+    useReaderStore.setState({ aiConfig: config });
+    await render();
+    await openEffort();
+    const button = document.querySelector(
+      '[aria-label="快速模式"]',
+    ) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    expect(
+      document.querySelector(".model-fast-description")?.textContent,
+    ).toContain("暂不支持");
+    expect(host.querySelector('[aria-label="快速模式已开启"]')).toBeNull();
+  },
+);
+
 it("saves the selected model while preserving the latest SDK and API configuration", async () => {
   await render();
   config = {

@@ -524,6 +524,8 @@ export interface AIConfig {
   primary: string;
   models: Record<string, string>;
   efforts?: Record<string, Record<string, ReasoningEffort>>;
+  /** Codex fast service tier for AI reading; defaults to false. */
+  codexFastMode?: boolean;
   translationModels?: Record<string, string>;
   translationEfforts?: Record<string, Record<string, ReasoningEffort>>;
   /** Image-input model of the "api" agent; other agents use their chat model. */

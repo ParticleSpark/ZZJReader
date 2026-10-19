@@ -4081,6 +4081,11 @@
                             { "$ref": "#/components/schemas/ReasoningEffort" },
                         },
                     },
+                  "codexFastMode":
+                    {
+                      "type": "boolean",
+                      "description": "Request Codex fast service tier for AI reading, independently of reasoning effort. Defaults to false; omitted updates preserve the saved choice.",
+                    },
                   "translationModels":
                     {
                       "type": "object",

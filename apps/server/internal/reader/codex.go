@@ -36,6 +36,7 @@ func newCodexSession(work, model string) (*codexSession, error) {
 		`features.hooks=false`, `features.plugins=false`, `features.apps=false`,
 		`features.multi_agent=false`, `features.code_mode=false`,
 		`features.view_image=false`, `features.image_generation=false`,
+		`features.fast_mode=true`,
 		`web_search="disabled"`, `mcp_servers={}`, `notify=[]`, `project_doc_max_bytes=0`,
 	} {
 		args = append(args, "-c", setting)
@@ -281,7 +282,16 @@ func (s *codexSession) generate(ctx context.Context, in AIInput, delta func(stri
 	for _, image := range in.images() {
 		input = append(input, map[string]string{"type": "image", "url": imageData(image)})
 	}
+	// The app-server's nullable override distinguishes absent (inherit) from
+	// null (clear). Explicit null prevents a global CLI fast tier leaking into
+	// Reader when its switch is off, including a reused provider thread.
 	turnParams := map[string]any{"threadId": threadID, "input": input}
+	if in.ServiceTier != nil {
+		turnParams["serviceTier"] = nil
+		if *in.ServiceTier != "" {
+			turnParams["serviceTier"] = *in.ServiceTier
+		}
+	}
 	if in.Effort != "" {
 		turnParams["effort"] = in.Effort
 	}

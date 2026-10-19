@@ -161,8 +161,8 @@ func TestAutomaticModelFallsBackToCLIDefault(t *testing.T) {
 		models[i].SupportedEfforts = []string{"low", "medium", "high"}
 	}
 	adapter := func(model string) configuredCLIAdapter {
-		return configuredCLIAdapter{cliAdapter{"", "claude", model}, "medium", taskTranslation,
-			func(context.Context, string) ([]AgentModel, error) { return models, nil }}
+		return configuredCLIAdapter{cliAdapter: cliAdapter{"", "claude", model}, level: "medium", task: taskTranslation,
+			catalog: func(context.Context, string) ([]AgentModel, error) { return models, nil }}
 	}
 	for _, tt := range []struct {
 		name       string

@@ -25,6 +25,7 @@ import {
 import { useReaderStore } from "./store";
 import { ProviderIcon } from "./ProviderIdentity";
 import { toast } from "sonner";
+import "./model-fast.css";
 
 export const efforts: ReasoningEffort[] = ["low", "medium", "high", "max"];
 // Base UI emits a scalar for a single-thumb pointer interaction, even when
@@ -85,6 +86,7 @@ export function ModelSelector({
   const [retry, setRetry] = useState(0);
   const [open, setOpen] = useState(false);
   const [effortSaving, setEffortSaving] = useState(false);
+  const [fastSaving, setFastSaving] = useState(false);
   const [animateEffort, setAnimateEffort] = useState(true);
   const effortQueue = useRef<ReasoningEffort | null>(null);
   const effortSaveRunning = useRef(false);
@@ -123,6 +125,8 @@ export function ModelSelector({
   const currentEffort =
     config?.efforts?.[provider]?.[configuredModel] ?? "medium";
   const effort = draftEffort ?? currentEffort;
+  const fastSupported = provider === "codex";
+  const fastMode = fastSupported && config?.codexFastMode === true;
   useEffect(() => {
     setDraftEffort(null);
   }, [provider, configuredModel]);
@@ -160,6 +164,30 @@ export function ModelSelector({
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
+      setAIModelSaving(false);
+    }
+  };
+  const toggleFastMode = async () => {
+    if (!fastSupported || disabled || useReaderStore.getState().aiModelSaving)
+      return;
+    setFastSaving(true);
+    setAIModelSaving(true);
+    try {
+      const latest = await api.aiConfig();
+      if (
+        latest.primary !== provider ||
+        (latest.models[provider] ?? "") !== configuredModel
+      ) {
+        setAIConfig(latest);
+        throw new Error("模型已改变，请重新设置快速模式");
+      }
+      setAIConfig(
+        await api.saveAIConfig({ ...latest, codexFastMode: !fastMode }),
+      );
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setFastSaving(false);
       setAIModelSaving(false);
     }
   };
@@ -238,12 +266,17 @@ export function ModelSelector({
         disabled={disabled}
       >
         <ProviderIcon provider={provider} size={20} />
-        <span className="model-trigger-name">
+        <span className="model-trigger-name" title={current?.name}>
           {current?.name ?? (loading ? "加载模型…" : "选择模型")}
         </span>
         <span className="model-trigger-effort">
           {effortLabel(currentEffort)}
         </span>
+        {fastMode && (
+          <span className="model-fast-indicator" title="快速模式已开启">
+            <Zap size={14} aria-label="快速模式已开启" />
+          </span>
+        )}
       </PopoverTrigger>
       <PopoverContent
         className="effort-panel"
@@ -252,7 +285,23 @@ export function ModelSelector({
         sideOffset={8}
       >
         <div className="effort-heading">
-          <Zap size={16} className="effort-symbol" aria-hidden="true" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="model-fast-toggle"
+            aria-label="快速模式"
+            aria-pressed={fastMode}
+            aria-busy={fastSaving}
+            title={
+              fastSupported
+                ? "切换 Codex 快速模式；不改变推理强度，可能消耗更多额度，需账号和模型支持"
+                : "当前 Agent 暂不支持快速模式"
+            }
+            disabled={disabled || saving || !fastSupported}
+            onClick={() => void toggleFastMode()}
+          >
+            <Zap size={16} aria-hidden="true" />
+          </Button>
           <PopoverTitle className="effort-title" aria-live="polite">
             {effortLabel(effort)}
           </PopoverTitle>
@@ -348,6 +397,15 @@ export function ModelSelector({
               <span key={value} />
             ))}
           </div>
+        </div>
+        <div className="model-fast-description" role="status">
+          {!fastSupported
+            ? "当前 Agent 暂不支持快速模式"
+            : fastSaving
+              ? "正在保存快速模式…"
+              : fastMode
+                ? "快速模式已开启 · 可能消耗更多额度"
+                : "快速模式已关闭"}
         </div>
       </PopoverContent>
     </Popover>

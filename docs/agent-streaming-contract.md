@@ -150,6 +150,8 @@ data: {"ok":true}
 
 前端无需解析上述 CLI 协议，也无需为不同 Agent 编写 SSE 分支。纯文字及带图片请求都使用相同事件结构。Codex 的完整消息事件仅用于补齐未发送后缀与一致性校验，不会重复发送已有内容。
 
+AI 助读模型菜单的快速模式通过 `AIConfig.codexFastMode?: boolean` 保存，默认关闭，仅适用于 Codex 助读，独立于模型和 Effort。开启时 `turn/start` 显式传 `serviceTier: "fast"`；关闭时传 `null` 清除此前覆盖。翻译、分类、能力测试等非助读请求省略该字段，保持原有行为。切换时重建缓存会话；快速模式失败会提示关闭后重试，不据此清除普通模式的文字/图片能力。未支持的 Agent 禁用此开关。协议依据为本机 Codex 0.142.4 的 App Server schema 和 [官方快速模式说明](https://learn.chatgpt.com/docs/agent-configuration/speed)；实际可用性及用量由账号和模型决定。
+
 本轮 `backend/unified-streaming` 已将 `text-api` / `image-api` 接到 OpenAI Chat Completions SSE：发送 `stream:true`，只消费 choice 0 的 `delta.content`，要求 `finish_reason:stop` 与 `[DONE]`。不支持 SSE 的上游明确报错，不自动再发非流请求；尚未声明其他 API 协议兼容性。正文及图片输入共用相同适配器与输出。前端仍须兼容单个大 delta。
 
 本轮普通 Codex/Claude 文字、Kimi 和图片均使用统一备用策略：首段前仅切到已配置且通过所需能力验证的对应备用 API；先 fallback 后 delta。首段后失败、客户端取消、总超时均不切换。后台任务的失败 attempt 单独丢弃，不混入备用正文。配置在请求开始时建立快照，不在生成中途读取新 key 或模型。

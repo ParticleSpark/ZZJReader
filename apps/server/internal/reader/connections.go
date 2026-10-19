@@ -38,6 +38,8 @@ type AIConfig struct {
 	Primary string                       `json:"primary"`
 	Models  map[string]string            `json:"models"`
 	Efforts map[string]map[string]string `json:"efforts,omitempty"`
+	// Codex fast service tier for AI reading; independent of reasoning effort.
+	CodexFastMode *bool `json:"codexFastMode,omitempty"`
 	// Translation choices are independent of chat. An empty model means
 	// Reader picks the fast tier from the live catalog.
 	TranslationModels  map[string]string            `json:"translationModels,omitempty"`
@@ -59,11 +61,12 @@ type savedConfig struct {
 	Fingerprints map[string]string `json:"fingerprints"`
 }
 type AIInput struct {
-	Chat   *chatInput
-	Effort string
-	Prompt string
-	Image  []byte
-	Images [][]byte
+	Chat        *chatInput
+	Effort      string
+	ServiceTier *string
+	Prompt      string
+	Image       []byte
+	Images      [][]byte
 }
 
 func (in AIInput) images() [][]byte {
@@ -237,6 +240,9 @@ func (s *Server) putAIConfig(w http.ResponseWriter, r *http.Request) {
 	s.configMu.Lock()
 	defer s.configMu.Unlock()
 	old := s.readAIConfig()
+	if c.CodexFastMode == nil {
+		c.CodexFastMode = old.CodexFastMode
+	}
 	if c.Efforts == nil {
 		c.Efforts = old.Efforts
 	}

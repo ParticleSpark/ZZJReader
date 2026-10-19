@@ -1,0 +1,24 @@
+.model-fast-toggle {
+  width: 24px;
+  height: 24px;
+  min-width: 0;
+  padding: 3px;
+  border-radius: 50%;
+  color: var(--muted-foreground);
+}
+.model-fast-toggle[aria-pressed="true"] {
+  color: var(--effort-blue);
+  background: color-mix(in srgb, var(--effort-blue) 12%, transparent);
+}
+.model-fast-indicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--effort-blue, var(--primary));
+}
+.model-fast-description {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  text-align: center;
+  font-size: 11px;
+  line-height: 16px;
+}

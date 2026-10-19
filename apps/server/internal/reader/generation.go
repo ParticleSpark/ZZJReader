@@ -70,6 +70,7 @@ type generationConnection struct {
 type GenerationService struct {
 	timeout       time.Duration // Zero keeps the normal three-minute request limit.
 	primary       string
+	codexFastMode bool
 	connections   map[string]generationConnection
 	attemptFailed func(string, bool, error)
 	usageSink     func(UsageCall) error
@@ -81,6 +82,7 @@ func (s *Server) generationService(config AIConfig) *GenerationService {
 
 func (s *Server) taskGenerationService(config AIConfig, task modelTask) *GenerationService {
 	g := &GenerationService{primary: config.Primary, connections: map[string]generationConnection{}}
+	g.codexFastMode = task == taskChat && config.CodexFastMode != nil && *config.CodexFastMode
 	models, efforts := config.Models, config.Efforts
 	if task == taskTranslation {
 		models, efforts = config.TranslationModels, config.TranslationEfforts
@@ -106,7 +108,14 @@ func (s *Server) taskGenerationService(config AIConfig, task modelTask) *Generat
 		if level == "" {
 			level = "medium"
 		}
-		cli := configuredCLIAdapter{cliAdapter{s.Store.Root, p, model}, level, task, s.modelCatalog}
+		cli := configuredCLIAdapter{cliAdapter: cliAdapter{s.Store.Root, p, model}, level: level, task: task, catalog: s.modelCatalog}
+		if p == "codex" && task == taskChat {
+			tier := ""
+			if config.CodexFastMode != nil && *config.CodexFastMode {
+				tier = "fast"
+			}
+			cli.serviceTier = &tier
+		}
 		var adapter Adapter = cli
 		if p == "codex" {
 			adapter = codexChatAdapter{cli, &s.codexChat}
@@ -132,9 +141,10 @@ type cliAdapter struct{ root, provider, model string }
 // Resolve native capabilities only when this connection is actually attempted.
 type configuredCLIAdapter struct {
 	cliAdapter
-	level   string
-	task    modelTask
-	catalog func(context.Context, string) ([]AgentModel, error)
+	level       string
+	serviceTier *string
+	task        modelTask
+	catalog     func(context.Context, string) ([]AgentModel, error)
 }
 
 // streamWith fills an unset model with the task default and maps the effort.
@@ -152,6 +162,9 @@ func (a configuredCLIAdapter) streamWith(ctx context.Context, req GenerateReques
 		cli.model = defaultTaskModel(a.task, a.provider, models)
 	}
 	first := req
+	if req.Input.Chat != nil {
+		first.Input.ServiceTier = a.serviceTier
+	}
 	first.Input.Effort = nativeEffort(a.provider, a.level, cli.model, models)
 	var visible, emitFailed atomic.Bool
 	result, err := run(cli, first, func(e ProviderEvent) error {
@@ -172,6 +185,9 @@ func (a configuredCLIAdapter) streamWith(ctx context.Context, req GenerateReques
 	}
 	log.Printf("%s %s model %s failed before output, retrying with the CLI default: %v", a.provider, a.task, cli.model, err)
 	cli.model = ""
+	if req.Input.Chat != nil {
+		req.Input.ServiceTier = a.serviceTier
+	}
 	req.Input.Effort = nativeEffort(a.provider, a.level, "", models)
 	return run(cli, req, emit)
 }
@@ -315,8 +331,14 @@ func (g *GenerationService) attempt(ctx context.Context, provider string, in AII
 			return GenerateResult{}, generationError(ErrorSave, "无法保存调用统计")
 		}
 	}
+	// Fast-tier availability does not establish whether the standard tier works.
+	// Keep the normal text/vision capability for translation and future standard chat.
+	fastChat := g.codexFastMode && provider == "codex" && in.Chat != nil
+	if err != nil && fastChat && ctx.Err() == nil && errorKind(err) != ErrorCanceled {
+		err = generationError(errorKind(err), "Codex 快速模式调用失败，可关闭快速模式后重试："+err.Error())
+	}
 	// User cancellation and a disconnected consumer do not invalidate the agent.
-	if err != nil && !errors.Is(ctx.Err(), context.Canceled) && errorKind(err) != ErrorCanceled && g.attemptFailed != nil {
+	if err != nil && !fastChat && !errors.Is(ctx.Err(), context.Canceled) && errorKind(err) != ErrorCanceled && g.attemptFailed != nil {
 		g.attemptFailed(provider, len(in.images()) > 0, err)
 	}
 	return result, err
