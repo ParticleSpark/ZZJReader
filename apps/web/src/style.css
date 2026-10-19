@@ -854,6 +854,11 @@ kbd {
 .pdfViewer {
   --page-margin: 20px auto;
 }
+/* Hide PDF link frames, including multi-line SVG borders, without moving links. */
+.pdf-container .annotationLayer .linkAnnotation {
+  border-color: transparent !important;
+  background-image: none !important;
+}
 /* Insets let edge-column blocks and the first block reach the viewport center. */
 .pdf-block-reading .pdfViewer {
   width: max-content;
