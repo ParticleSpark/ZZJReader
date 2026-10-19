@@ -119,6 +119,7 @@ import { useReaderStore } from "./store";
 import { scheduleProgress, flushProgress } from "./progress";
 import { stepTranslationSize } from "./appearance";
 import { TranslationFontControls } from "./TranslationFontControls";
+import "./chat/context-control.css";
 function IconButton({
   label,
   children,
@@ -742,6 +743,7 @@ export function Workspace({
         context,
         references,
         attachments,
+        fullDocument: theme.chatFullDocument === true,
       });
       if (serial !== sendSerial.current) return;
       const answer = session.getSnapshot().pending;
@@ -1444,9 +1446,10 @@ export function Workspace({
                         <ArrowLeft className="ml-auto rotate-180" />
                       </Button>
                       <p className="privacy-note">
-                        对话发送所选文字或当前
-                        {doc.type === "epub" ? "章节" : "页面"}给 AI。PDF
-                        图表按主 Agent 设置自动预处理。
+                        {theme.chatFullDocument
+                          ? "对话会结合已解析的全文，以选中内容为重点回答。"
+                          : `对话发送所选文字或当前${doc.type === "epub" ? "章节" : "页面"}给 AI。`}
+                        PDF 图表按主 Agent 设置自动预处理。
                       </p>
                     </div>
                   }
@@ -1508,8 +1511,41 @@ export function Workspace({
                       }
                     }}
                   />
-                  <div className="compose-footer">
-                    <ModelSelector disabled={sending} onSettings={onSettings} />
+                  <div className="compose-footer assistant-compose-footer">
+                    <div className="compose-context-options">
+                      <ModelSelector
+                        disabled={sending}
+                        onSettings={onSettings}
+                      />
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              size="sm"
+                              variant={
+                                theme.chatFullDocument ? "secondary" : "ghost"
+                              }
+                              className="compose-context-toggle"
+                              aria-label="全文上下文"
+                              aria-pressed={theme.chatFullDocument === true}
+                              disabled={sending}
+                              onClick={() =>
+                                setTheme({
+                                  chatFullDocument:
+                                    theme.chatFullDocument !== true,
+                                })
+                              }
+                            />
+                          }
+                        >
+                          <BookOpen className="size-3.5" />
+                          <span>全文上下文</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          开启后结合已解析的整篇论文回答，仍以选中内容为重点；可能增加用量。
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     {sending ? (
                       <Button
                         size="icon-sm"

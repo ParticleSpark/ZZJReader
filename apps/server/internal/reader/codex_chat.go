@@ -49,7 +49,9 @@ func (c *codexChatCache) acquire(root, model string, in AIInput) (*codexSession,
 	}
 	chat := in.Chat
 	executable, _ := exec.LookPath("codex")
-	key := executable + "\x00" + model + "\x00" + in.Effort + "\x00" + chat.Title
+	// Rebuild when full-document mode is toggled or its parsed source changes.
+	// A provider thread cannot forget a previously supplied full document.
+	key := executable + "\x00" + model + "\x00" + in.Effort + "\x00" + chat.Title + "\x00" + chat.FullDocumentSource
 	e := c.entry
 	if e != nil && (e.key != key || e.document != chat.DocumentID || e.savedID != chat.PriorID || e.pending != nil || e.turns >= 64 || e.sourceBytes >= 256000) {
 		c.discardLocked()

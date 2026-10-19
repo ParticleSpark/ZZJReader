@@ -1141,6 +1141,12 @@
                                     },
                                   "prompt": { "type": "string" },
                                   "context": { "type": "string" },
+                                  "fullDocument":
+                                    {
+                                      "type": "boolean",
+                                      "default": false,
+                                      "description": "Include complete parsed PDF/EPUB text read by the server, while retaining context as the selected focus. Rejects incomplete text with 409 and text above 256 KiB UTF-8 with 413; never silently truncates. Does not persist the full text in messages.",
+                                    },
                                   "references":
                                     {
                                       "type": "array",
@@ -3779,6 +3785,11 @@
                     {
                       "type": "boolean",
                       "description": "Copy selected text and clicked annotation quotes to the clipboard. Disabled when omitted.",
+                    },
+                  "chatFullDocument":
+                    {
+                      "type": "boolean",
+                      "description": "Remember whether assistant requests include the current document's complete parsed text. Disabled when omitted.",
                     },
                 },
               "additionalProperties": true,

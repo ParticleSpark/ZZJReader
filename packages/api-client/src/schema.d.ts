@@ -895,6 +895,11 @@ export interface paths {
                         attachments?: string[];
                         prompt: string;
                         context: string;
+                        /**
+                         * @description Include complete parsed PDF/EPUB text read by the server, while retaining context as the selected focus. Rejects incomplete text with 409 and text above 256 KiB UTF-8 with 413; never silently truncates. Does not persist the full text in messages.
+                         * @default false
+                         */
+                        fullDocument?: boolean;
                         references?: {
                             text: string;
                             /** @enum {unknown} */
@@ -3043,6 +3048,8 @@ export interface components {
         Settings: {
             /** @description Copy selected text and clicked annotation quotes to the clipboard. Disabled when omitted. */
             autoCopySelection?: boolean;
+            /** @description Remember whether assistant requests include the current document's complete parsed text. Disabled when omitted. */
+            chatFullDocument?: boolean;
         } & {
             [key: string]: unknown;
         };

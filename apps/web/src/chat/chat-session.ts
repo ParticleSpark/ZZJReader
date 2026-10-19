@@ -5,6 +5,7 @@ export type ChatInput = {
   provider: string;
   prompt: string;
   context: string;
+  fullDocument?: boolean;
   references: SourceReference[];
   attachments: ImageAttachment[];
 };
@@ -58,6 +59,7 @@ const transport: ChatTransport = {
         input.attachments.map((image) => image.id),
         undefined,
         emit,
+        input.fullDocument,
       );
     } finally {
       // The server records failed primary attempts even when a fallback succeeds.
@@ -147,7 +149,7 @@ export class ChatSession {
       key: `request-${serial}`,
       content: "",
       phase: "generating",
-      notice: "正在阅读上下文…",
+      notice: input.fullDocument ? "正在阅读全文上下文…" : "正在阅读上下文…",
       fallback: "",
       before: new Set(this.state.messages.map((message) => message.id)),
       input,
@@ -177,7 +179,9 @@ export class ChatSession {
         pending.notice =
           event.data.status === "reading-image"
             ? "正在阅读图片…"
-            : "正在阅读上下文…";
+            : input.fullDocument
+              ? "正在阅读全文上下文…"
+              : "正在阅读上下文…";
       if (event.event === "fallback") pending.fallback = event.data.message;
       if (event.event === "error") {
         terminal = true;

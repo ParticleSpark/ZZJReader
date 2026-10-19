@@ -261,6 +261,8 @@ export interface ReaderTheme {
   autoTranslatePDF?: boolean;
   /** Copy selected text and clicked annotation quotes to the clipboard. */
   autoCopySelection?: boolean;
+  /** Include the current document's complete parsed text in assistant replies. */
+  chatFullDocument?: boolean;
   appearance?: Appearance;
   /** "zotero" colors icons and stripes list rows; "plain" keeps the flat gray chrome. */
   chrome?: LibraryChrome;
@@ -292,6 +294,7 @@ export interface HighlightColor {
 export const defaultTheme: ReaderTheme = {
   autoTranslatePDF: true,
   autoCopySelection: false,
+  chatFullDocument: false,
   appearance: "system",
   mode: "light",
   fontSize: 1.15,

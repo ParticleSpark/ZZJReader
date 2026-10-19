@@ -8,14 +8,14 @@
 | --- | --- |
 | 接口与认证 | `POST /api/documents/{documentId}/chat`；Reader 会话 Bearer token；JSON 请求。不是 Agent API Key。 |
 | 必填请求字段 | `provider: "codex" \| "claude" \| "kimi" \| "api"`、`prompt: string`、`context: string`；context 可为空。 |
-| 可选请求字段 | `references: SourceReference[]`、`attachments: string[]`，省略等价于空数组；附件是当前文档块 ID。不新增 connectionId 或客户端模型/认证字段。 |
+| 可选请求字段 | `references: SourceReference[]`、`attachments: string[]`，省略等价于空数组；附件是当前文档块 ID。`fullDocument?: boolean` 默认为 false，开启后由后端读取当前文档全文。不新增 connectionId 或客户端模型/认证字段。 |
 | 事件与 JSON data | `status {status:"reading"\|"reading-image"}`、`delta {text:string}`、`fallback {message:string}`、`error {error:string}`、`done {ok:true}`。仍使用独立 SSE event 行，不另包 type/payload 外壳。 |
 | 正文 | delta 仅为新增原始文本，保留空格/换行；按到达顺序追加。不是累计全文、HTML 或 AST，不携带推理/工具/日志。 |
 | 成功终态 | 适配器确认成功且完整助手消息保存成功后，仅一次 done；最终全文从 messages 读取并替换临时回答，不再次追加。 |
 | 失败终态 | 流开始前非 200 JSON error；开始后仅一次 error，不再 done；终态后无正文。EOF 本身不代表成功。 |
 | 取消/断流 | AbortSignal 断开请求并停止上游；不承诺取消事件。保存竞态/终态丢失由 messages 核对；不自动重新 POST。 |
 | 备用策略 | 最多从选定 Agent 切换到已配置且验证通过的对应备用 API；只允许首个正文之前切换，先 fallback 再 delta。已显示正文、主动取消、总超时均不自动切换；不能自动轮询另两种 Agent。 |
-| 请求限制 | 维持当前 prompt 16,000 / context 64,000 UTF-8 字节、最多 4 个附件、回答 1MiB、3 分钟总超时及交互请求并发限制。 |
+| 请求限制 | 维持当前 prompt 16,000 / context 64,000 UTF-8 字节、最多 4 个附件、回答 1MiB、3 分钟总超时及交互请求并发限制。开启全文时，服务端提取正文（含页码/章节标签）另限 256 KiB UTF-8，不静默截断。 |
 | 暂不支持 | wire 版本字段/协商、序号、messageId、usage、断点续传、正文替换事件。不得依赖未实现字段。 |
 
 正常序列为 `status → delta+ → done`；备用序列为 `status → fallback → delta+ → done`；失败为 `status → [fallback] → delta* → error`，也可能在建立流前直接 HTTP 失败。SSE 注释可忽略；网络读取分片没有业务含义。主动取消或断网可能没有终态。
@@ -26,7 +26,7 @@
 
 后端负责调用 Agent、过滤协议事件、及时发送回答片段，并在成功结束后保存完整回答。前端负责接收 SSE、维护临时回答及渲染状态。Markdown、公式、代码块的渲染方式、刷新频率、自动滚动及取消后的展示由前端决定。
 
-`2afe113` 的三种 Agent 协议实现已合入 main。本轮统一服务来自 `backend/unified-streaming`，随 `frontend/lobehub-streaming` 联合分支合入 main。阶段实现及证据见 [后端进度](./implementation/backend-streaming-progress.md)。顶部冻结表保持不变。
+`2afe113` 的三种 Agent 协议实现已合入 main。本轮统一服务来自 `backend/unified-streaming`，随 `frontend/lobehub-streaming` 联合分支合入 main。阶段实现及证据见 [后端进度](./implementation/backend-streaming-progress.md)。2026-10-19 按用户需求联合增加可选 `fullDocument` 请求字段，SSE 事件和完成条件保持不变。
 
 ## 1. 请求接口
 
@@ -45,6 +45,7 @@ type ChatRequest = {
   context: string;
   references?: SourceReference[];
   attachments?: string[];
+  fullDocument?: boolean;
 };
 ```
 
@@ -52,13 +53,18 @@ type ChatRequest = {
 
 `attachments` 是当前文档已有图片块的 ID，例如 `p1-b1`，最多 4 项。后端读取并发送图片；前端无需在此请求中上传 base64。`prompt` 必须非空，最多 16,000 UTF-8 字节；`context` 最多 64,000 UTF-8 字节。没有摘录时传空字符串。
 
+`fullDocument` 默认为 false；开启时，后端按页码或 EPUB 阅读顺序提取当前文档的完整已解析正文，保留 `context` 作为当前选区重点。全文和选区都作为不可信资料提供给模型，要求结合相关定义、方法和结论并标明页码/章节；未附加的图片不视为已读取。全文不写入用户消息的 `context`，也不通过浏览器请求体传输。PDF 未完成解析、缺页、无可用正文或 EPUB 章节无法完整读取时返回 409；全文正文（含标签）超过 256 KiB UTF-8 返回 413。这些错误在保存用户消息和调用模型前返回，界面显示原因，不静默退化为部分正文。
+
+界面通过阅读设置 `chatFullDocument` 记住开关，下次发送时携带 `fullDocument`。Codex 会话按全文正文哈希隔离；关闭开关或正文变化后重建会话，避免继续携带此前全文。已保存的对话问答仍按既有历史策略保留。
+
 ```json
 {
   "provider": "codex",
   "prompt": "请解释这段内容",
   "context": "当前摘录……",
   "references": [],
-  "attachments": []
+  "attachments": [],
+  "fullDocument": false
 }
 ```
 
@@ -125,7 +131,7 @@ data: {"ok":true}
 
 收到 `done` 后，可调用 `GET /api/documents/{documentId}/messages`，也就是现有 `api.messages(documentId)`。该接口返回的助手 `content` 是完整回答。不要再将它追加到临时回答，否则会重复显示。前端决定如何用已保存记录替换临时消息。
 
-流开始前的校验、登录或并发错误使用非 200 HTTP 响应和 `{"error":"说明"}`。常见状态为 `400`、`401`、`404`、`409`；`409` 表示已有交互式 AI 请求运行。应先检查 `response.ok`，再选择 JSON 错误处理或 SSE 读取。
+流开始前的校验、登录或并发错误使用非 200 HTTP 响应和 `{"error":"说明"}`。常见状态为 `400`、`401`、`404`、`409`、`413`；`409` 可表示已有交互式 AI 请求运行或全文尚不可用，`413` 表示全文超出限制，具体原因见 error。应先检查 `response.ok`，再选择 JSON 错误处理或 SSE 读取。
 
 流开始后的失败使用 `event: error`。一旦已有文字送达，后端不会自动切换到另一个模型追加第二份回答。不完整的助手回答不会按成功结果保存。当前端没有收到 `done` 就遇到 EOF、网络错误或解析错误，应视为“完成状态未确认”。如果后端恰好已保存、但终止事件在网络中丢失，数据库仍可能有完整回答；应重新读取消息列表确认，不要断言一定没有保存。
 

@@ -3,6 +3,7 @@ package reader
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -79,11 +80,12 @@ func apiProvider(c APIConnection) Provider {
 }
 func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Provider    string          `json:"provider"`
-		Prompt      string          `json:"prompt"`
-		Context     *string         `json:"context"`
-		References  json.RawMessage `json:"references"`
-		Attachments []string        `json:"attachments"`
+		Provider     string          `json:"provider"`
+		Prompt       string          `json:"prompt"`
+		Context      *string         `json:"context"`
+		References   json.RawMessage `json:"references"`
+		Attachments  []string        `json:"attachments"`
+		FullDocument bool            `json:"fullDocument"`
 	}
 	if !decode(w, r, &req) {
 		return
@@ -112,5 +114,17 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	}
 	defer finish()
 	r = r.WithContext(ctx)
-	s.chatDocument(w, r, d.ID, d.Title, req.Provider, req.Prompt, *req.Context, req.References, req.Attachments)
+	fullText := ""
+	if req.FullDocument {
+		fullText, err = s.fullDocumentChatText(d)
+		if err != nil {
+			status := http.StatusConflict
+			if errors.Is(err, errFullDocumentTooLarge) {
+				status = http.StatusRequestEntityTooLarge
+			}
+			fail(w, status, err.Error())
+			return
+		}
+	}
+	s.chatDocument(w, r, d.ID, d.Title, req.Provider, req.Prompt, *req.Context, fullText, req.References, req.Attachments)
 }

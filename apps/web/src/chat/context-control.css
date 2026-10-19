@@ -1,0 +1,34 @@
+.compose-footer.assistant-compose-footer {
+  gap: 6px;
+}
+.compose-context-options {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+.assistant-compose-footer .compose-context-options .model-select-trigger {
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 5px;
+}
+.compose-context-options .model-trigger-effort {
+  flex-shrink: 0;
+}
+.compose-context-options .compose-context-toggle {
+  height: 28px;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 9999px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.compose-context-options .compose-context-toggle[aria-pressed="true"] {
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.assistant-compose-footer > button {
+  flex-shrink: 0;
+}

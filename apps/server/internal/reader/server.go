@@ -179,6 +179,12 @@ func (s *Server) Handler() http.Handler {
 				return
 			}
 		}
+		if value, exists := v["chatFullDocument"]; exists {
+			if _, ok := value.(bool); !ok {
+				fail(w, 400, "全文上下文设置必须为布尔值")
+				return
+			}
+		}
 		if value, exists := v["translationGlossary"]; exists {
 			text, ok := value.(string)
 			if !ok {
