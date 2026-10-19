@@ -108,9 +108,11 @@ export const useReaderStore = create<{
   setTheme: (patch) =>
     set((state) => ({ theme: { ...state.theme, ...patch } })),
 }));
-let libraryRevision = 0;
+let libraryRequestRevision = 0;
+let libraryAppliedRevision = 0;
+let libraryRemovalRevision = 0;
 export function forgetLibraryDocuments(ids: string[]) {
-  ++libraryRevision;
+  ++libraryRemovalRevision;
   const removed = new Set(ids);
   useReaderStore.setState((state) => {
     const tabs = state.tabs.filter((tab) => !removed.has(tab.id));
@@ -128,10 +130,18 @@ export function forgetLibraryDocuments(ids: string[]) {
   });
 }
 export async function refreshLibrary() {
-  const revision = ++libraryRevision;
+  const revision = ++libraryRequestRevision;
+  const removalRevision = libraryRemovalRevision;
   const documents = await api.documents();
-  if (revision === libraryRevision)
-    useReaderStore.getState().setDocuments(documents);
+  // A pending or failed newer request must not discard a successful read.
+  // Local removals still invalidate every response requested before them.
+  if (
+    removalRevision !== libraryRemovalRevision ||
+    revision < libraryAppliedRevision
+  )
+    return;
+  useReaderStore.getState().setDocuments(documents);
+  libraryAppliedRevision = revision;
 }
 export async function refreshAIConfig() {
   const before = useReaderStore.getState().aiConfig;

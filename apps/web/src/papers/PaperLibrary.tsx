@@ -959,6 +959,11 @@ export function PaperLibrary({
             ) : !loading && !error ? (
               <div className="empty-state">
                 <h2>{documents.length ? "没有符合条件的论文" : "暂无论文"}</h2>
+                {!documents.length && onRetry && (
+                  <Button variant="outline" onClick={onRetry}>
+                    重新读取
+                  </Button>
+                )}
                 {documents.length > 0 && (query || view !== "all") && (
                   <Button
                     variant="outline"

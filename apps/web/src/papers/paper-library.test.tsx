@@ -127,6 +127,7 @@ const button = (label: string) =>
   )!;
 
 it("only shows an empty library after loading succeeds", async () => {
+  const retry = vi.fn();
   await act(async () => {
     useReaderStore.setState({ documents: [] });
     root.render(<Harness loading />);
@@ -135,8 +136,10 @@ it("only shows an empty library after loading succeeds", async () => {
     host.querySelector('[role="status"]')?.getAttribute("aria-label"),
   ).toBe("正在读取论文库");
   expect(host.textContent).not.toContain("暂无论文");
-  await act(async () => root.render(<Harness />));
+  await act(async () => root.render(<Harness onRetry={retry} />));
   expect(host.textContent).toContain("暂无论文");
+  await act(async () => button("重新读取").click());
+  expect(retry).toHaveBeenCalledOnce();
 });
 
 it("shows a failed library read and lets the user retry", async () => {
