@@ -94,6 +94,14 @@ it("keeps existing library records when a refresh fails", async () => {
   expect(useReaderStore.getState().documents).toEqual(papers);
 });
 
+it("does not treat an error without a message as a successful empty library", async () => {
+  vi.mocked(api.documents).mockRejectedValue(new Error());
+  await render();
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe(
+    "无法读取本地书库",
+  );
+});
+
 it("reports only library counts and failure state to desktop diagnostics", async () => {
   const reportLibraryState = vi.fn();
   vi.stubGlobal("readerDesktop", { reportLibraryState });

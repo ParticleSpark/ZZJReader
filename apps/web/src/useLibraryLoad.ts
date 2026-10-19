@@ -31,7 +31,11 @@ export function useLibraryLoad() {
         await refreshLibrary();
       } catch (cause) {
         if (!active) return;
-        setError(cause instanceof Error ? cause.message : "无法读取本地书库");
+        setError(
+          cause instanceof Error && cause.message.trim()
+            ? cause.message
+            : "无法读取本地书库",
+        );
         // Retry transient startup failures, then leave an explicit retry action.
         if (attempt < 2)
           timer = setTimeout(

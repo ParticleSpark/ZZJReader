@@ -288,11 +288,7 @@ export const api = {
       { method: "POST" },
     );
   },
-  documents: async (): Promise<Document[]> => {
-    const { data, error } = await client.GET("/api/documents");
-    if (error) throw new Error(error.error);
-    return data;
-  },
+  documents: () => request<Document[]>("/api/documents"),
   /** Papers over 50 pages fail with code "large-paper" unless allowLarge. */
   import: (file: File, library: LibraryMode = "books", allowLarge = false) => {
     const form = new FormData();
