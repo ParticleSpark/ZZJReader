@@ -57,6 +57,13 @@ func runAgentProcess() {
 	}
 	mode := os.Getenv("READER_AGENT_MODE")
 	defer os.Exit(0)
+	readyForGeneration := func() {
+		if ready := os.Getenv("READER_AGENT_READY"); mode == "gated" && ready != "" {
+			if err := os.WriteFile(ready, []byte("ready"), 0600); err != nil {
+				os.Exit(22)
+			}
+		}
+	}
 	emit := func(v any) { _ = json.NewEncoder(os.Stdout).Encode(v) }
 	gate := func() {
 		if mode != "gated" && mode != "cancel" {
@@ -107,6 +114,7 @@ func runAgentProcess() {
 			return
 		}
 		_, _ = io.ReadAll(reader)
+		readyForGeneration()
 		if path := os.Getenv("READER_AGENT_CAPTURE"); path != "" {
 			_ = os.WriteFile(path, []byte(args), 0600)
 		}
@@ -190,6 +198,7 @@ func runAgentProcess() {
 				}
 				respond(map[string]any{"thread": map[string]string{"id": "thread"}, "model": "actual-codex"})
 			case "turn/start":
+				readyForGeneration()
 				turnNumber++
 				currentTurn := fmt.Sprintf("turn-%d", turnNumber)
 				if path := os.Getenv("READER_AGENT_CAPTURE"); path != "" {
@@ -297,6 +306,7 @@ func runAgentProcess() {
 				}
 				respond(map[string]any{})
 			case "session/prompt":
+				readyForGeneration()
 				if mode == "fail-before" {
 					emit(map[string]any{"id": req.ID, "error": map[string]any{"code": -1, "message": "test failure"}})
 					continue
@@ -345,18 +355,63 @@ func TestAgentStreamingBeforeCompletion(t *testing.T) {
 	for _, provider := range []string{"codex", "claude", "kimi"} {
 		t.Run(provider, func(t *testing.T) {
 			ack := fakeAgent(t, provider, "gated")
+			ready := ack + ".ready"
+			t.Setenv("READER_AGENT_READY", ready)
 			s := testServer(t)
 			c := AIConfig{Primary: provider, Models: map[string]string{}, Capabilities: map[string]Capability{}}
 			c.Capabilities[provider] = Capability{Text: true, Vision: true, Fingerprint: configPrint(c, provider)}
-			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-			defer cancel()
+			ctx, cancel := context.WithCancel(t.Context())
 			var parts []string
-			result, err := s.generateWithConfig(ctx, c, AIInput{Prompt: "test", Image: []byte{1}}, func(part string) {
-				parts = append(parts, part)
-				if err := os.WriteFile(ack, []byte("received"), 0600); err != nil {
-					t.Error(err)
+			var result AIResult
+			var err error
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				result, err = s.generateWithConfig(ctx, c, AIInput{Prompt: "test", Image: []byte{1}}, func(part string) {
+					parts = append(parts, part)
+					if err := os.WriteFile(ack, []byte("received"), 0600); err != nil {
+						t.Error(err)
+					}
+				}, nil)
+			}()
+			defer func() {
+				cancel()
+				select {
+				case <-done:
+				case <-time.After(2 * time.Second):
+					t.Error("generation did not stop during cleanup")
 				}
-			}, nil)
+			}()
+			// Model discovery and generation may launch separate helpers, each
+			// scanned by Windows. Start the five-second streaming deadline only
+			// after the generation helper has received its actual prompt.
+			startup := time.NewTimer(10 * time.Second)
+			defer startup.Stop()
+			tick := time.NewTicker(10 * time.Millisecond)
+			defer tick.Stop()
+		readyWait:
+			for {
+				if _, readyErr := os.Stat(ready); readyErr == nil {
+					break
+				} else if !os.IsNotExist(readyErr) {
+					t.Fatal(readyErr)
+				}
+				select {
+				case <-done:
+					if _, readyErr := os.Stat(ready); readyErr != nil {
+						t.Fatalf("Agent exited before startup: %v", err)
+					}
+					break readyWait
+				case <-startup.C:
+					t.Fatal("Agent did not start")
+				case <-tick.C:
+				}
+			}
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("streaming exceeded its deadline after Agent startup")
+			}
 			if err != nil || result.Text != "你好，世界" || len(parts) != 2 || strings.Join(parts, "") != result.Text {
 				t.Fatalf("expected two deltas before completion, got parts=%q result=%+v error=%v", parts, result, err)
 			}
