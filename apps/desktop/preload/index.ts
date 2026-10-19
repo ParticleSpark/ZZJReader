@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("readerDesktop", {
   platform: process.platform,
+  reportLibraryState: (state: {
+    total: number;
+    papers: number;
+    books: number;
+    failed: boolean;
+  }) => ipcRenderer.send("reader:library-state", state),
   checkForUpdates: () => ipcRenderer.invoke("reader:check-updates"),
   writeClipboardText: (text: string) =>
     ipcRenderer.invoke("reader:clipboard-write", text),

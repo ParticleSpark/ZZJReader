@@ -24,6 +24,10 @@ import { writeClipboardText } from "./clipboard";
 import { childProxyEnvironment } from "./proxy";
 import { startUpdateService } from "./update-service";
 import { devIsolation } from "./dev-isolation";
+import {
+  createLibraryStartupLog,
+  trustedLibraryState,
+} from "./library-startup-log";
 const isolation = devIsolation({
   isPackaged: app.isPackaged,
   env: process.env,
@@ -215,6 +219,13 @@ app
   .whenReady()
   .then(async () => {
     if (!primary) return;
+    const libraryStartupLog = createLibraryStartupLog({
+      userData: app.getPath("userData"),
+      appDirectory: app.getAppPath(),
+      version: app.getVersion(),
+      isPackaged: app.isPackaged,
+      dataDir: join(app.getPath("userData"), "library"),
+    });
     // Development runs need the entry script registered beside Electron.
     if (isolation.registerProtocol) {
       if (process.defaultApp && process.argv.length >= 2)
@@ -353,6 +364,10 @@ app
     ipcMain.handle("reader:clipboard-write", (event, text: unknown) =>
       writeClipboardText(event, text, window?.webContents, url),
     );
+    ipcMain.on("reader:library-state", (event, value: unknown) => {
+      const state = trustedLibraryState(event, value, window?.webContents, url);
+      if (state) void libraryStartupLog.recordState(state);
+    });
     ipcMain.handle("reader:appearance", (event, appearance: unknown) => {
       if (
         event.sender !== window?.webContents ||

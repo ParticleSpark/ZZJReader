@@ -3,6 +3,12 @@
 interface Window {
   readerDesktop?: {
     platform: string;
+    reportLibraryState?: (state: {
+      total: number;
+      papers: number;
+      books: number;
+      failed: boolean;
+    }) => void;
     checkForUpdates: () => Promise<void>;
     writeClipboardText: (text: string) => Promise<void>;
     setAppearance: (

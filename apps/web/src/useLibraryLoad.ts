@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { refreshLibrary } from "./store";
+import { refreshLibrary, useReaderStore } from "./store";
 
 /** Loading saved documents is independent of AI availability and preferences. */
 export function useLibraryLoad() {
@@ -9,6 +9,17 @@ export function useLibraryLoad() {
   const [revision, setRevision] = useState(0);
   const retry = useCallback(() => setRevision((value) => value + 1), []);
   const clearError = useCallback(() => setError(""), []);
+  const documents = useReaderStore((state) => state.documents);
+
+  useEffect(() => {
+    if (!initialized || loading) return;
+    window.readerDesktop?.reportLibraryState?.({
+      total: documents.length,
+      papers: documents.filter((doc) => doc.library === "papers").length,
+      books: documents.filter((doc) => doc.library === "books").length,
+      failed: !!error,
+    });
+  }, [initialized, loading, documents, error]);
 
   useEffect(() => {
     let active = true;

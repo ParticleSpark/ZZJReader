@@ -94,6 +94,28 @@ it("keeps existing library records when a refresh fails", async () => {
   expect(useReaderStore.getState().documents).toEqual(papers);
 });
 
+it("reports only library counts and failure state to desktop diagnostics", async () => {
+  const reportLibraryState = vi.fn();
+  vi.stubGlobal("readerDesktop", { reportLibraryState });
+  vi.mocked(api.documents)
+    .mockRejectedValueOnce(new Error("private failure details"))
+    .mockResolvedValue(papers);
+  await render();
+  expect(reportLibraryState).toHaveBeenLastCalledWith({
+    total: 0,
+    papers: 0,
+    books: 0,
+    failed: true,
+  });
+  await advance(1000);
+  expect(reportLibraryState).toHaveBeenLastCalledWith({
+    total: 1,
+    papers: 1,
+    books: 0,
+    failed: false,
+  });
+});
+
 it("cancels scheduled retries on unmount", async () => {
   vi.mocked(api.documents).mockRejectedValue(new Error("offline"));
   await render();
