@@ -24,6 +24,7 @@ import { writeClipboardText } from "./clipboard";
 import { childProxyEnvironment } from "./proxy";
 import { startUpdateService } from "./update-service";
 import { devIsolation } from "./dev-isolation";
+import { resolveLibraryDirectory } from "./library-directory";
 import {
   createLibraryStartupLog,
   trustedLibraryState,
@@ -46,7 +47,7 @@ let quitting = false;
 let closing = false;
 let flushed = false;
 const root = resolve(__dirname, "../..");
-async function startServer() {
+async function startServer(libraryDirectory: string) {
   const childEnv = await childProxyEnvironment(process.env);
   serverToken = randomBytes(32).toString("hex");
   const binary = app.isPackaged
@@ -79,7 +80,7 @@ async function startServer() {
       "--port",
       "0",
       "--data",
-      join(app.getPath("userData"), "library"),
+      libraryDirectory,
       "--web",
       web,
       ...(!isolation.enableConnector ? ["--connector=false"] : []),
@@ -219,12 +220,16 @@ app
   .whenReady()
   .then(async () => {
     if (!primary) return;
+    const libraryDirectory = resolveLibraryDirectory({
+      userData: app.getPath("userData"),
+      env: process.env,
+    });
     const libraryStartupLog = createLibraryStartupLog({
       userData: app.getPath("userData"),
       appDirectory: app.getAppPath(),
       version: app.getVersion(),
       isPackaged: app.isPackaged,
-      dataDir: join(app.getPath("userData"), "library"),
+      dataDir: libraryDirectory,
     });
     // Development runs need the entry script registered beside Electron.
     if (isolation.registerProtocol) {
@@ -234,7 +239,7 @@ app
         ]);
       else app.setAsDefaultProtocolClient(READER_SCHEME);
     }
-    const url = await startServer();
+    const url = await startServer(libraryDirectory);
     session.defaultSession.setPermissionRequestHandler(
       (contents, permission, callback, details) => {
         // Only Reader's own page may list installed fonts, for the
@@ -404,8 +409,7 @@ app
         )
           throw new Error("Invalid document");
         const file = join(
-          app.getPath("userData"),
-          "library",
+          libraryDirectory,
           type === "pdf" ? "papers" : "books",
           `${id}.${type}`,
         );
