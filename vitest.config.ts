@@ -10,6 +10,9 @@ const dependencies = realpathSync(new URL("./node_modules", import.meta.url));
 export default defineConfig({
   server: { fs: { allow: [root, dependencies] } },
   test: {
+    // Each UI worker loads a large jsdom/component graph. Bound memory usage
+    // on developer machines instead of stretching individual test deadlines.
+    maxWorkers: 2,
     // The default 5s is too tight for the full suite on CI runners.
     testTimeout: 10_000,
     server: {

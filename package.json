@@ -12,7 +12,7 @@
     "desktop": "pnpm build && pnpm --filter @reader/desktop start",
     "typecheck": "tsc --noEmit",
     "test": "pnpm test:go && vitest run",
-    "test:go": "cd apps/server && go test ./...",
+    "test:go": "cd apps/server && go test -count=1 ./...",
     "api:generate": "openapi-typescript docs/openapi.yaml -o packages/api-client/src/schema.d.ts",
     "format": "prettier --write apps/web/src apps/desktop packages docs scripts",
     "postinstall": "node scripts/prepare-assets.mjs",
