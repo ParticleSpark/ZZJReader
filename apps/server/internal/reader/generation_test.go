@@ -124,14 +124,24 @@ func TestAgentCancellationHandshake(t *testing.T) {
 				defer cancel()
 				text := ""
 				start := time.Now()
-				_, err := invokeCLI(ctx, s.Store.Root, p, "", AIInput{Prompt: "test"}, func(part string) { text += part; cancel() })
+				var canceledAt time.Time
+				_, err := invokeCLI(ctx, s.Store.Root, p, "", AIInput{Prompt: "test"}, func(part string) {
+					text += part
+					if canceledAt.IsZero() {
+						canceledAt = time.Now()
+					}
+					cancel()
+				})
 				if !errors.Is(err, context.Canceled) || text != "你好" {
 					t.Fatalf("text=%q err=%v", text, err)
 				}
 				if _, err := os.Stat(ack); err != nil {
 					t.Fatal("missing protocol cancel", err)
 				}
-				if time.Since(start) > 2*time.Second {
+				// The grace period starts at cancellation, not at process startup.
+				// Windows may scan a newly copied helper executable before it runs.
+				t.Logf("CLI startup: %s; cancellation: %s", canceledAt.Sub(start), time.Since(canceledAt))
+				if time.Since(canceledAt) > 2*time.Second {
 					t.Fatal("cancel exceeded grace period")
 				}
 				entries, err := os.ReadDir(filepath.Join(s.Store.Root, "ai-work"))

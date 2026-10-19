@@ -61,14 +61,48 @@ func TestModelDiscoveryRejectsUnknownProviderAndCancels(t *testing.T) {
 	if r := request(t, s, "GET", "/api/ai/models?provider=invalid", nil); r.Code != 400 {
 		t.Fatal(r.Code)
 	}
-	fakeAgent(t, "codex", "models-wait")
-	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	ready := fakeAgent(t, "codex", "models-wait")
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := discoverModels(ctx, s.Store.Root, "codex")
+		done <- err
+	}()
+	// Cancel an initialized process so this checks interruption of an actual
+	// protocol read, independently of platform-specific executable startup.
+	startupDeadline := time.Now().Add(10 * time.Second)
+	for {
+		if _, err := os.Stat(ready); err == nil {
+			break
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("discovery exited before cancellation: %v", err)
+		default:
+		}
+		if time.Now().After(startupDeadline) {
+			t.Fatal("CLI did not initialize")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	started := time.Now()
-	if _, err := discoverModels(ctx, s.Store.Root, "codex"); err == nil {
-		t.Fatal("expected cancellation")
+	cancel()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected cancellation")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("CLI did not stop after cancellation")
 	}
 	if time.Since(started) > 2*time.Second {
 		t.Fatal("CLI did not stop after cancellation")
+	}
+	files, err := os.ReadDir(filepath.Join(s.Store.Root, "ai-work"))
+	if err != nil || len(files) != 0 {
+		t.Fatalf("discovery workdir leaked: %v", err)
 	}
 }

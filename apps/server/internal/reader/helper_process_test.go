@@ -22,7 +22,14 @@ func TestMain(m *testing.M) {
 		case "models":
 			runModelProcess()
 		case "models-wait":
-			time.Sleep(time.Minute)
+			// Signal only after discovery has reached its protocol read. Process
+			// startup on Windows can outlast a short cancellation deadline.
+			if scanner := bufio.NewScanner(os.Stdin); scanner.Scan() {
+				if err := os.WriteFile(os.Getenv("READER_AGENT_ACK"), []byte("ready"), 0600); err != nil {
+					os.Exit(10)
+				}
+				time.Sleep(time.Minute)
+			}
 		default:
 			runAgentProcess()
 		}
