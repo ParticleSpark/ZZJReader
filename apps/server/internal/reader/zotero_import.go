@@ -124,26 +124,46 @@ func (s *Server) importZotero(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, result)
 }
 
+// Enforce the storage boundary while opening, including Windows junctions and
+// links changed after the preview. Continue importing from this same handle.
+func openZoteroAttachment(e *zoteroEntry) (*os.File, error) {
+	if e.root == "" {
+		// Absolute linked attachments have no selected base-directory boundary.
+		return os.Open(e.path)
+	}
+	// Resolve legitimate links within the base before using Root.Open, which
+	// deliberately rejects absolute links even if their targets are inside it.
+	// The final relative open still enforces the boundary if links change now.
+	path, err := canonicalZoteroAttachmentPath(e.path)
+	if err != nil {
+		return nil, errors.New("PDF 已移动或无法访问，请重新扫描")
+	}
+	base, err := canonicalZoteroAttachmentPath(e.root)
+	if err != nil {
+		return nil, errors.New("PDF 已移动或无法访问，请重新扫描")
+	}
+	rel, err := filepath.Rel(base, path)
+	if err != nil || !filepath.IsLocal(rel) {
+		return nil, errors.New("附件链接指向所选存储目录之外")
+	}
+	root, err := os.OpenRoot(base)
+	if err != nil {
+		return nil, errors.New("PDF 已移动或无法访问，请重新扫描")
+	}
+	defer root.Close()
+	file, err := root.Open(rel)
+	if err != nil {
+		return nil, errors.New("附件无法读取，或链接指向所选存储目录之外，请重新扫描")
+	}
+	return file, nil
+}
+
 func (s *Server) importZoteroEntry(ctx context.Context, e *zoteroEntry) (zoteroImportResult, error) {
 	result := zoteroImportResult{Warnings: append([]string{}, e.Warnings...)}
 	// Serializes file ownership with regular uploads; SQL protects metadata/notes.
 	s.importMu.Lock()
 	defer s.importMu.Unlock()
-	path, err := filepath.EvalSymlinks(e.path)
-	if err != nil {
-		return result, errors.New("PDF 已移动或无法访问，请重新扫描")
-	}
-	if e.root != "" {
-		root, err := filepath.EvalSymlinks(e.root)
-		if err != nil {
-			return result, err
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil || !filepath.IsLocal(rel) {
-			return result, errors.New("附件链接指向所选存储目录之外")
-		}
-	}
-	file, err := os.Open(path)
+	file, err := openZoteroAttachment(e)
 	if err != nil {
 		return result, err
 	}

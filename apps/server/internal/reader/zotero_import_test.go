@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -236,22 +237,31 @@ func TestZoteroPathsAndPreviewLifecycle(t *testing.T) {
 	if _, _, err := zoteroAttachmentPath("/tmp", "/tmp/base", "PDF00001", "attachments:../bad.pdf", 2); err == nil {
 		t.Fatal("relative traversal")
 	}
-	dir, _ := zoteroFixture(t)
-	entry := mustScanZotero(t, dir).Entries[0]
-	outside := filepath.Join(t.TempDir(), "outside.pdf")
-	os.WriteFile(outside, testPDF(1), 0600)
-	os.Remove(entry.path)
-	if err := os.Symlink(outside, entry.path); err != nil {
+	dir, db := zoteroFixture(t)
+	base := t.TempDir()
+	nested := filepath.Join(base, "papers")
+	if err := os.Mkdir(nested, 0700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(nested, "paper.pdf"), testPDF(2), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE itemAttachments SET path='attachments:papers/paper.pdf',linkMode=2 WHERE itemID=2`); err != nil {
+		t.Fatal(err)
+	}
+	scan, err := readZotero(context.Background(), dir, base)
+	if err != nil || len(scan.Entries) != 1 || scan.Entries[0].Issue != "" {
+		t.Fatalf("linked attachment preview: %+v, %v", scan, err)
+	}
+	entry := scan.Entries[0]
+	replaceTestFileWithExternalLink(t, entry.path, testPDF(1))
 	s := testServer(t)
-	if _, err := s.importZoteroEntry(context.Background(), entry); err == nil {
-		t.Fatal("symlink escape")
+	if _, err := s.importZoteroEntry(context.Background(), entry); err == nil || !strings.Contains(err.Error(), "链接指向所选存储目录之外") {
+		t.Fatalf("attachment escape: %v", err)
 	}
 	if w := request(t, s, "POST", "/api/import/zotero", strings.NewReader(`{"scanId":"missing","entryId":"anything"}`)); w.Code != 409 {
 		t.Fatal(w.Body.String())
 	}
-	scan := mustScanZotero(t, dir)
 	scan.expires = time.Now().Add(-time.Second)
 	s.zoteroScans = map[string]*zoteroScan{scan.ID: scan}
 	body, _ := json.Marshal(map[string]string{"scanId": scan.ID, "entryId": entry.ID})
@@ -259,6 +269,66 @@ func TestZoteroPathsAndPreviewLifecycle(t *testing.T) {
 		t.Fatal("expired preview accepted")
 	}
 }
+
+func TestZoteroLinkedAttachmentImportPaths(t *testing.T) {
+	cases := []string{"nested", "aliased-root", "internal-directory-link", "absolute"}
+	if runtime.GOOS != "windows" {
+		// Windows directory junctions cover reparse-point traversal without
+		// requiring Developer Mode or administrator privileges for symlinks.
+		cases = append(cases, "internal-absolute-file-link")
+	}
+	for _, kind := range cases {
+		t.Run(kind, func(t *testing.T) {
+			dir, db := zoteroFixture(t)
+			base := t.TempDir()
+			nested := filepath.Join(base, "papers")
+			if err := os.Mkdir(nested, 0700); err != nil {
+				t.Fatal(err)
+			}
+			pdf := filepath.Join(nested, "paper.pdf")
+			if err := os.WriteFile(pdf, testPDF(2), 0600); err != nil {
+				t.Fatal(err)
+			}
+			attachment := "attachments:papers/paper.pdf"
+			if kind == "aliased-root" {
+				alias := filepath.Join(t.TempDir(), "base-alias")
+				linkTestDirectory(t, base, alias)
+				base = alias
+			} else if kind == "internal-directory-link" {
+				linkTestDirectory(t, nested, filepath.Join(base, "alias"))
+				attachment = "attachments:alias/paper.pdf"
+			} else if kind == "internal-absolute-file-link" {
+				if err := os.Symlink(pdf, filepath.Join(base, "paper-link.pdf")); err != nil {
+					t.Fatal(err)
+				}
+				attachment = "attachments:paper-link.pdf"
+			} else if kind == "absolute" {
+				base, attachment = "", pdf
+			}
+			if _, err := db.Exec(`UPDATE itemAttachments SET path=?,linkMode=2 WHERE itemID=2`, attachment); err != nil {
+				t.Fatal(err)
+			}
+			scan, err := readZotero(context.Background(), dir, base)
+			if err != nil || len(scan.Entries) != 1 || scan.Entries[0].Issue != "" {
+				t.Fatalf("linked attachment preview: %+v, %v", scan, err)
+			}
+			s := testServer(t)
+			result, err := s.importZoteroEntry(context.Background(), scan.Entries[0])
+			if err != nil || result.Status != "imported" {
+				t.Fatalf("linked attachment import: %+v, %v", result, err)
+			}
+			doc, err := s.Store.Document(result.DocumentID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := os.ReadFile(s.Store.File(doc))
+			if err != nil || !bytes.Equal(got, testPDF(2)) {
+				t.Fatalf("imported attachment changed: %v", err)
+			}
+		})
+	}
+}
+
 func TestZoteroRotatedCoordinatesAndFallback(t *testing.T) {
 	box := [4]float64{10, 20, 110, 220}
 	rect := []float64{20, 40, 50, 80}

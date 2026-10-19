@@ -113,9 +113,7 @@ func TestZoteroLinkedBaseMatchesLibrary(t *testing.T) {
 		t.Fatal("unrelated library accepted")
 	}
 	alias := filepath.Join(root, "library-alias")
-	if err := os.Symlink(directory, alias); err != nil {
-		t.Fatal(err)
-	}
+	linkTestDirectory(t, directory, alias)
 	if got, err := zoteroLinkedBaseFromProfiles(alias, t.TempDir(), []string{matching}); err != nil || got != resolvedBase {
 		t.Fatalf("symlinked library: %s, %v", got, err)
 	}

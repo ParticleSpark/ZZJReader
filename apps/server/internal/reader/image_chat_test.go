@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -39,16 +38,8 @@ func TestBlockImageAuthorizationAndBoundaries(t *testing.T) {
 	if _, _, err := s.readBlockImage("doc", "../../ai-connections"); err == nil {
 		t.Fatal("path accepted")
 	}
-	external := filepath.Join(t.TempDir(), "outside.png")
-	os.WriteFile(external, data, 0600)
 	asset := filepath.Join(s.analysisDir("doc"), "assets", "p1-b1.png")
-	os.Remove(asset)
-	if err := os.Symlink(external, asset); err != nil {
-		if runtime.GOOS == "windows" && os.IsPermission(err) {
-			t.Skip("symlink creation requires Windows privilege")
-		}
-		t.Fatal(err)
-	}
+	replaceTestFileWithExternalLink(t, asset, data)
 	if _, _, err := s.readBlockImage("doc", "p1-b1"); err == nil {
 		t.Fatal("symlink escaped analysis root")
 	}
