@@ -1,4 +1,5 @@
 import type { BrowserWindow } from "electron";
+import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   read: vi.fn(),
@@ -157,14 +158,17 @@ it("stages a signed Mac update silently and installs it on restart", async () =>
   const service = await startUpdateService(window);
   stop = service.stop;
   await vi.advanceTimersByTimeAsync(15_000);
-  expect(mocks.inPlace).toHaveBeenCalledWith("/Applications/Reader.app");
+  // Stubbing process.platform does not change node:path's host separator.
+  expect(mocks.inPlace).toHaveBeenCalledWith(
+    join("/Applications", "Reader.app"),
+  );
   expect(mocks.download).toHaveBeenCalledWith(
     expect.objectContaining({
       installer: "Reader-0.2.0-mac-arm64.zip",
       downloadURL:
         "https://github.com/cynicalight/reader/releases/download/v0.2.0/Reader-0.2.0-mac-arm64.zip",
     }),
-    "/test/user-data/updates",
+    join("/test/user-data", "updates"),
     expect.any(Function),
   );
   expect(mocks.stage).toHaveBeenCalledWith(

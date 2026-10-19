@@ -17,6 +17,15 @@ vi.mock("@reader/api", () => ({
     saveLibraryPreferences: vi.fn(async (value) => value),
   },
 }));
+// Capability state changes do not depend on model-picker layout or brand avatars.
+// Keep those independent render trees out of this lifecycle suite; TaskModels has
+// its own interaction tests. Model changes below still use the real shared store.
+vi.mock("./TaskModels", () => ({ TaskModels: () => null }));
+vi.mock("./ProviderIdentity", () => ({
+  ProviderIdentity: ({ provider }: { provider: string }) => (
+    <span>{provider}</span>
+  ),
+}));
 vi.mock("@reader/ui/components/dialog", () => {
   const Content = ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
