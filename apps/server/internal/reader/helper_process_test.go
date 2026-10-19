@@ -15,6 +15,11 @@ import (
 func TestMain(m *testing.M) {
 	if os.Getenv("READER_AGENT_HELPER") != "" {
 		switch os.Getenv("READER_AGENT_MODE") {
+		case "layout":
+			if err := runLayoutProcess(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 		case "translation-session":
 			runTranslationSessionProcess()
 		case "chat-session":

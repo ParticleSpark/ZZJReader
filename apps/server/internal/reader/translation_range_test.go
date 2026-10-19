@@ -3,10 +3,12 @@ package reader
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -91,28 +93,66 @@ func fakeLayout(t *testing.T) (log string) {
 	t.Helper()
 	dir := t.TempDir()
 	log = filepath.Join(dir, "calls.log")
-	script := filepath.Join(dir, "layout.sh")
-	body := `while [ $# -gt 0 ]; do case "$1" in --output) out="$2"; shift;; --from-page) from="$2"; shift;; --to-page) to="$2"; shift;; esac; shift; done
-echo "$from-$to" >> "$FAKE_LAYOUT_LOG"
-mkdir -p "$out/assets"
-text=""; i=0; while [ $i -lt 60 ]; do text="${text}Sentence number. "; i=$((i+1)); done
-blocks=""; pages=""; p=$from
-while [ $p -le $to ]; do
-  [ -n "$blocks" ] && blocks="$blocks," && pages="$pages,"
-  blocks="$blocks{\"id\":\"p$p-b1\",\"page\":$p,\"label\":\"text\",\"bounds\":{\"x\":0.1,\"y\":0.1,\"width\":0.5,\"height\":0.3},\"text\":\"$text\"}"
-  pages="$pages$p"
-  echo "{\"event\":\"page\",\"page\":$p,\"total\":80}"
-  p=$((p+1))
-done
-printf '{"pages":80,"model":"fake","parsedPages":[%s],"blocks":[%s],"warnings":[],"incompletePages":[]}' "$pages" "$blocks" > "$out/manifest.json"
-`
-	if err := os.WriteFile(script, []byte(body), 0700); err != nil {
+	fakeAgent(t, "layout-processor", "layout")
+	binary, err := exec.LookPath("layout-processor")
+	if err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("READER_NODE", "/bin/sh")
-	t.Setenv("READER_PROCESSOR", script)
+	t.Setenv("READER_NODE", binary)
+	t.Setenv("READER_PROCESSOR", "layout-fixture")
 	t.Setenv("FAKE_LAYOUT_LOG", log)
 	return log
+}
+
+func runLayoutProcess() error {
+	args := flag.NewFlagSet("layout-fixture", flag.ContinueOnError)
+	input := args.String("input", "", "")
+	out := args.String("output", "", "")
+	from := args.Int("from-page", 0, "")
+	to := args.Int("to-page", 0, "")
+	if err := args.Parse(os.Args[2:]); err != nil {
+		return err
+	}
+	if *out == "" || *from < 1 || *to < *from || *to > 80 {
+		return fmt.Errorf("invalid layout arguments: %v", os.Args[2:])
+	}
+	if _, err := os.Stat(*input); err != nil {
+		return err
+	}
+	log, err := os.OpenFile(os.Getenv("FAKE_LAYOUT_LOG"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(log, "%d-%d\n", *from, *to)
+	closeErr := log.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err := os.MkdirAll(filepath.Join(*out, "assets"), 0700); err != nil {
+		return err
+	}
+	m := layoutManifest{Pages: 80, ParsedPages: []int{}, Blocks: []PDFBlock{}, IncompletePages: []int{}}
+	for page := *from; page <= *to; page++ {
+		block := PDFBlock{ID: fmt.Sprintf("p%d-b1", page), Page: page, Label: "text", Text: strings.Repeat("Sentence number. ", 60)}
+		block.Bounds.X, block.Bounds.Y, block.Bounds.Width, block.Bounds.Height = .1, .1, .5, .3
+		m.Blocks = append(m.Blocks, block)
+		m.ParsedPages = append(m.ParsedPages, page)
+		if _, err := fmt.Fprintf(os.Stdout, "{\"event\":\"page\",\"page\":%d,\"total\":80}\n", page); err != nil {
+			return err
+		}
+	}
+	manifest := struct {
+		layoutManifest
+		Model string `json:"model"`
+	}{m, "fake"}
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(*out, "manifest.json"), data, 0600)
 }
 
 func TestBookChapterParsesOnlyItsPagesThenTranslates(t *testing.T) {
