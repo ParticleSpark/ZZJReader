@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { readerWorkspaceAliases } from "./workspace-aliases";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 // Linked node_modules can resolve outside a worktree. Allow that dependency
@@ -8,6 +9,7 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 const dependencies = realpathSync(new URL("./node_modules", import.meta.url));
 
 export default defineConfig({
+  resolve: { alias: readerWorkspaceAliases },
   server: { fs: { allow: [root, dependencies] } },
   test: {
     // Each UI worker loads a large jsdom/component graph. Bound memory usage
