@@ -422,7 +422,7 @@ export interface paths {
                         tags?: string[];
                         folders?: string[];
                         favorite?: boolean;
-                        progress?: components["schemas"]["DocumentLocation"];
+                        progress?: components["schemas"]["ReadingLocation"];
                         percentage?: number;
                         title?: string;
                         author?: string;
@@ -3031,7 +3031,7 @@ export interface components {
             annotations: number;
             warnings: string[];
         };
-        DocumentLocation: {
+        ReadingLocation: {
             /** @constant */
             type: "pdf";
             page: number;
@@ -3047,6 +3047,18 @@ export interface components {
             sentenceLink?: components["schemas"]["SentenceLink"];
             translation?: components["schemas"]["TranslationLocation"];
         } | components["schemas"]["EPUBLocation"];
+        DocumentLocation: components["schemas"]["ReadingLocation"] | components["schemas"]["MethodAnalysisLocation"];
+        /** @description Selection in AI-generated method analysis, never a position in the original paper. Offsets count UTF-16 code units in rendered selectable text, not Markdown source. */
+        MethodAnalysisLocation: {
+            /** @constant */
+            type: "method-analysis";
+            /** @description SHA-256 of the saved Markdown identifying this analysis version. */
+            contentHash: string;
+            start: number;
+            /** @description Exclusive end offset, greater than start. */
+            end: number;
+            quote?: string;
+        };
         Document: {
             /** @enum {unknown} */
             category: "book" | "article" | "paper";
@@ -3068,7 +3080,7 @@ export interface components {
             lastOpenedAt: string;
             favorite: boolean;
             percentage: number;
-            progress?: components["schemas"]["DocumentLocation"];
+            progress?: components["schemas"]["ReadingLocation"];
             /** @enum {unknown} */
             library: "books" | "papers";
             /** @description Set while the document is in the trash */

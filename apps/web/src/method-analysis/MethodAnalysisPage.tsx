@@ -1,8 +1,16 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
+import type { Annotation } from "@reader/core";
 import { Button } from "@reader/ui/components/button";
 import { LoaderCircle, ScanText } from "lucide-react";
 import { analysisRunning, type useMethodAnalysis } from "./useMethodAnalysis";
+import {
+  SavedMethodAnalysisReader,
+  type MethodAnalysisEvents,
+  type MethodAnalysisReader,
+} from "./MethodAnalysisReader";
 import "./method-analysis.css";
+
+export type { MethodAnalysisReader } from "./MethodAnalysisReader";
 
 const MessageMarkdown = lazy(() =>
   import("../chat/MessageMarkdown").then((module) => ({
@@ -11,6 +19,67 @@ const MessageMarkdown = lazy(() =>
 );
 
 export type MethodAnalysisController = ReturnType<typeof useMethodAnalysis>;
+const noEvents: MethodAnalysisEvents = { selection: () => {} };
+const noAnnotations: Annotation[] = [];
+
+function SavedAnalysisContent({
+  content,
+  documentId,
+  annotations,
+  events,
+  onReady,
+}: {
+  content: string;
+  documentId: string;
+  annotations: Annotation[];
+  events: MethodAnalysisEvents;
+  onReady?: (controller: MethodAnalysisReader | undefined) => void;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const reader = useRef<SavedMethodAnalysisReader | undefined>(undefined);
+  const latest = useRef({ annotations, events, onReady });
+  latest.current = { annotations, events, onReady };
+  useEffect(() => {
+    if (!host.current) return;
+    const instance = new SavedMethodAnalysisReader(
+      host.current,
+      content,
+      latest.current.events,
+    );
+    reader.current = instance;
+    instance.update(
+      latest.current.annotations.filter(
+        (item) => item.documentId === documentId,
+      ),
+      latest.current.events,
+    );
+    let active = true;
+    void instance.ready.then(() => {
+      if (active) latest.current.onReady?.(instance);
+    });
+    return () => {
+      active = false;
+      reader.current = undefined;
+      instance.destroy();
+      latest.current.onReady?.(undefined);
+    };
+  }, [documentId, content]);
+  useEffect(() => {
+    reader.current?.update(
+      annotations.filter((item) => item.documentId === documentId),
+      events,
+    );
+  }, [annotations, events, documentId]);
+  return (
+    <div ref={host} className="method-analysis-body" tabIndex={0}>
+      <MessageMarkdown
+        content={content}
+        animated={false}
+        documentId={documentId}
+      />
+    </div>
+  );
+}
 
 export function MethodAnalysisButton({
   analysis,
@@ -39,13 +108,34 @@ export function MethodAnalysisButton({
 export function MethodAnalysisPage({
   documentId,
   analysis,
+  annotations = noAnnotations,
+  events = noEvents,
+  onReady,
 }: {
   documentId: string;
   analysis: MethodAnalysisController;
+  annotations?: Annotation[];
+  events?: MethodAnalysisEvents;
+  onReady?: (controller: MethodAnalysisReader | undefined) => void;
 }) {
   const { job, pending, error, loading } = analysis;
   const running = analysisRunning(job);
   const hasContent = !!job?.content.trim();
+  const waitingForResult = loading && !job;
+  useEffect(() => {
+    if (hasContent || waitingForResult) return;
+    const empty: MethodAnalysisReader = {
+      getSelection: () => null,
+      clearSelection: () => events.selection(null),
+      focusLocation: async () => {
+        throw new Error("当前没有已保存的方法解析");
+      },
+      getContext: () => "",
+      getLocation: () => undefined,
+    };
+    onReady?.(empty);
+    return () => onReady?.(undefined);
+  }, [hasContent, waitingForResult, documentId, onReady, events]);
   const status =
     pending && !running
       ? "正在开始方法解析…"
@@ -125,10 +215,12 @@ export function MethodAnalysisPage({
               <p className="method-analysis-label">上次完成的解析</p>
             )}
             <Suspense fallback={<p>正在显示解析…</p>}>
-              <MessageMarkdown
+              <SavedAnalysisContent
                 content={job!.content}
-                animated={false}
                 documentId={documentId}
+                annotations={annotations}
+                events={events}
+                onReady={onReady}
               />
             </Suspense>
           </article>
@@ -140,6 +232,7 @@ export function MethodAnalysisPage({
           >
             <p className="method-analysis-label">
               {running ? "本次解析 · 生成中" : "本次解析 · 未完成"}
+              {" · 解析完成后可添加批注"}
             </p>
             <Suspense fallback={<p>正在显示解析…</p>}>
               <MessageMarkdown

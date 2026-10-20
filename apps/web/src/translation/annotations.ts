@@ -32,7 +32,9 @@ export function translatedAnnotationRanges(
 ) {
   const result: { annotation: Annotation; range: Range }[] = [];
   for (const annotation of annotations) {
-    const mark = annotation.location.translation;
+    const location = annotation.location;
+    if (location.type !== "pdf" && location.type !== "epub") continue;
+    const mark = location.translation;
     if (!mark) continue;
     for (const part of mark.ranges ?? [{ ...mark, quote: annotation.quote }]) {
       if (

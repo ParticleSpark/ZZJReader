@@ -173,8 +173,9 @@ function TOCTree({
           item.location.type === location?.type &&
           (item.location.type === "pdf"
             ? item.location.page === (location as { page: number }).page
-            : item.location.href.split("#")[0] ===
-              (location as { href: string }).href?.split("#")[0]);
+            : item.location.type === "epub" &&
+              item.location.href.split("#")[0] ===
+                (location as { href: string }).href?.split("#")[0]);
         return (
           <div key={item.id}>
             <Button
@@ -484,7 +485,10 @@ export function Workspace({
   ) => {
     const written = kind === "note" || kind === "question";
     const source = written ? noteSelection : selection;
-    const target = kind === "bookmark" ? location : source?.location;
+    const target =
+      kind === "bookmark"
+        ? (adapter?.getLocation() ?? location)
+        : source?.location;
     if (!target || annotationSaving.current) return;
     annotationSaving.current = true;
     setNoteSaving(written);
@@ -1347,7 +1351,9 @@ export function Workspace({
                   label="问 AI"
                   onClick={() =>
                     void send(
-                      "请解释这段文字的含义，区分原文结论与你的补充说明。",
+                      selection.location.type === "method-analysis"
+                        ? "请解释这段方法解析，结合论文内容说明依据，区分论文原文、已有 AI 解读和你的补充推断。"
+                        : "请解释这段文字的含义，区分原文结论与你的补充说明。",
                       [selection],
                     )
                   }

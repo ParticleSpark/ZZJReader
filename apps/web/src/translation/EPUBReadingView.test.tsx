@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, expect, it, vi } from "vitest";
 import { api } from "@reader/api";
 import {
   defaultTheme,
@@ -279,7 +279,7 @@ it("keeps translated selection while source navigation emits selection resets", 
     sentence.dispatchEvent(new MouseEvent("pointerup", { bubbles: true })),
   );
   const selected = fixture.ready!.getSelection()!;
-  expect(selected.location.type).toBe("epub");
+  assert(selected.location.type === "epub");
   expect(selected.location.translation?.sentenceIndexes).toEqual([1]);
   await act(async () => fixture.events!.selection(null));
   expect(fixture.ready!.getSelection()).toBe(selected);
@@ -355,10 +355,10 @@ it("retains both original chapter locations when selecting across a chapter boun
   await act(async () =>
     end.dispatchEvent(new MouseEvent("pointerup", { bubbles: true })),
   );
+  const selected = fixture.ready!.getSelection();
+  assert(selected?.location.type === "epub");
   expect(
-    fixture
-      .ready!.getSelection()
-      ?.location.translation?.ranges?.map((r) => r.location?.href),
+    selected.location.translation?.ranges?.map((r) => r.location?.href),
   ).toEqual(["a.xhtml", "b.xhtml"]);
 });
 

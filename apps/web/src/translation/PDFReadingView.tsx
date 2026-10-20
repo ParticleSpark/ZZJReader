@@ -57,6 +57,7 @@ import {
   MethodAnalysisPage,
 } from "../method-analysis/MethodAnalysisPage";
 import { useMethodAnalysis } from "../method-analysis/useMethodAnalysis";
+import { useMethodReaderBridge } from "../method-reader-bridge";
 import { chapterRange } from "./chapters";
 import { searchPDFBlocks } from "./pdf-search";
 import { PDFTranslationStatus } from "./PDFTranslationStatus";
@@ -96,6 +97,9 @@ export function PDFReadingView({
   const noteOpen = overlay === "note";
   const methodOpen = overlay === "method" && doc.library === "papers";
   const covered = noteOpen || methodOpen;
+  const methodReader = useMethodReaderBridge(doc.id, methodOpen, (open) =>
+    setOverlay(open ? "method" : undefined),
+  );
   const methodAnalysis = useMethodAnalysis(
     doc.library === "papers" ? doc.id : undefined,
     methodOpen,
@@ -125,6 +129,7 @@ export function PDFReadingView({
     moving: false,
   });
   const root = useRef<HTMLDivElement>(null),
+    stage = useRef<HTMLDivElement>(null),
     pane = useRef<HTMLDivElement>(null),
     control = useRef(new ReadingSync()),
     side = useRef<"source" | "translation">("source"),
@@ -171,11 +176,11 @@ export function PDFReadingView({
       cancelTranslationMotion();
     };
   }, [mode, doc.id]);
-  const state = useRef({ mode, blocks, translations, events, theme });
-  state.current = { mode, blocks, translations, events, theme };
+  const state = useRef({ mode, blocks, translations, events, theme, covered });
+  state.current = { mode, blocks, translations, events, theme, covered };
   useSentenceMarks(
-    root,
-    engine,
+    stage,
+    covered ? undefined : engine,
     blocks,
     translations,
     annotations,
@@ -434,7 +439,7 @@ export function PDFReadingView({
   const ready = (adapter: ReaderAdapter, toc: TOCItem[]) => {
     outline.current = toc;
     setEngine(adapter);
-    facade.current = new Proxy(adapter, {
+    const source = new Proxy(adapter, {
       get(target, key) {
         if (key === "prepareAnnotation")
           return async (value: ReaderSelection) => {
@@ -559,6 +564,7 @@ export function PDFReadingView({
         return typeof value === "function" ? value.bind(target) : value;
       },
     });
+    facade.current = methodReader.wrap(source);
     onReady(facade.current, toc);
   };
   useEffect(() => {
@@ -655,7 +661,7 @@ export function PDFReadingView({
     control.current.input(active);
   };
   const sourceSelection = (value: ReaderSelection | null) => {
-    if (side.current !== "source") return;
+    if (state.current.covered || side.current !== "source") return;
     selection.current = value;
     events.selection(value);
     if (
@@ -693,7 +699,8 @@ export function PDFReadingView({
       const links = (
         (await engine?.matchSentences?.(location, translations)) ?? fallback
       ).filter((l) => l.sentenceIndexes.length);
-      if (selection.current !== value || !links.length) return;
+      if (state.current.covered || selection.current !== value || !links.length)
+        return;
       const enriched = {
         ...value,
         location: {
@@ -711,6 +718,14 @@ export function PDFReadingView({
     };
     void map().catch((e) => toast.error(e.message));
   };
+  useEffect(() => {
+    if (!covered) return;
+    selection.current = null;
+    state.current.events.selection(null);
+    state.current.events.annotation?.(null);
+    engine?.clearSelection();
+    setLinked(undefined);
+  }, [covered, engine]);
   const translatedSelection = () => {
     selecting.current = false;
     const selected = window.getSelection();
@@ -907,7 +922,13 @@ export function PDFReadingView({
   return (
     <div className="pdf-reading" ref={root} data-theme={theme.mode}>
       {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
-      <div className="translation-stage" data-covered={covered} inert={covered}>
+      <div
+        ref={stage}
+        className="translation-stage"
+        data-theme={theme.mode}
+        data-covered={covered}
+        inert={covered}
+      >
         {mode === "translation" && (
           <div className="pdf-reading-controls">
             <div className="pdf-page-navigation">{pageNavigation}</div>
@@ -933,16 +954,20 @@ export function PDFReadingView({
                 document={doc}
                 theme={theme}
                 annotations={annotations.filter(
-                  (a) => a.location.type !== "pdf" || !a.location.translation,
+                  (a) => a.location.type === "pdf" && !a.location.translation,
                 )}
                 blocks={blocks}
                 onReady={ready}
                 events={{
                   ...events,
                   selection: sourceSelection,
+                  annotation: (target) => {
+                    if (!state.current.covered) events.annotation?.(target);
+                  },
                   blockFocus: (block) => focusBlock(block, "source"),
                   location: (location, percentage) => {
                     if (
+                      !state.current.covered &&
                       state.current.mode !== "translation" &&
                       side.current === "source"
                     )
@@ -1243,7 +1268,13 @@ export function PDFReadingView({
       </div>
       {noteOpen && <DocumentNotePage documentId={doc.id} />}
       {methodOpen && (
-        <MethodAnalysisPage documentId={doc.id} analysis={methodAnalysis} />
+        <MethodAnalysisPage
+          documentId={doc.id}
+          analysis={methodAnalysis}
+          annotations={annotations}
+          events={events}
+          onReady={methodReader.register}
+        />
       )}
     </div>
   );

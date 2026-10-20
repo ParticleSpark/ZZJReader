@@ -18,6 +18,7 @@ export function referenceLabel(
   toc: TOCItem[],
 ): string {
   if (location.type === "pdf") return `第 ${location.page} 页`;
+  if (location.type === "method-analysis") return "方法解析";
   const find = (items: TOCItem[]): TOCItem | undefined => {
     for (const item of items) {
       if (
@@ -89,11 +90,13 @@ export function contextReferences(
           location:
             location.type === "pdf"
               ? { type: "pdf", page: location.page }
-              : {
-                  type: "epub",
-                  href: location.href.split("#")[0],
-                  progression: 0,
-                },
+              : location.type === "method-analysis"
+                ? { ...location }
+                : {
+                    type: "epub",
+                    href: location.href.split("#")[0],
+                    progression: 0,
+                  },
           kind: "section",
         },
       ]

@@ -112,7 +112,7 @@ func (s *Server) chatDocument(w http.ResponseWriter, r *http.Request, documentID
 		fail(w, 500, "无法读取聊天历史")
 		return
 	}
-	prompt, chat := makeChatInput(documentID, title, question, textContext, descriptions.String(), messages, fullDocument)
+	prompt, chat := makeChatInput(documentID, title, question, referenceAwareChatContext(textContext, references), descriptions.String(), messages, fullDocument)
 	if err := s.Store.saveMessage(Message{DocumentID: documentID, Role: "user", Content: question, Context: textContext, References: references, Attachments: attachments}); err != nil {
 		fail(w, 500, "无法保存对话")
 		return

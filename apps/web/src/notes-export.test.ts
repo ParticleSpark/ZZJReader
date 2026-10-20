@@ -109,3 +109,38 @@ it("quotes annotations into the paper note once, in reading order", () => {
   );
   expect(annotationDigest(marks, digest, link, date)).toBe("");
 });
+it("keeps analysis provenance and navigation links in exports and paper-note excerpts", () => {
+  const analysis = mark({
+    id: "analysis",
+    quote: "AI interpretation",
+    note: "Check against the method section.",
+    location: {
+      type: "method-analysis",
+      contentHash: "a".repeat(64),
+      start: 10,
+      end: 27,
+    },
+  });
+  const original = mark({ id: "paper", quote: "Paper evidence" });
+  const annotations = [analysis, original];
+  const link = (a: Annotation) => `reader://open?id=p&annotation=${a.id}`;
+  const md = notesMarkdown(
+    doc,
+    { annotations, messages: [], paperNote: "" },
+    ["highlights"],
+    link,
+  );
+  expect(md).toContain(
+    "### 方法解析 · 划线 [↗](reader://open?id=p&annotation=analysis)\n\n> AI interpretation",
+  );
+  expect(md.indexOf("Paper evidence")).toBeLessThan(
+    md.indexOf("AI interpretation"),
+  );
+  const digest = annotationDigest(annotations, "", link);
+  expect(digest).toContain(
+    "- [方法解析](reader://open?id=p&annotation=analysis)：“AI interpretation”",
+  );
+  expect(digest).toContain(
+    "- [第 1 页](reader://open?id=p&annotation=paper)：“Paper evidence”",
+  );
+});

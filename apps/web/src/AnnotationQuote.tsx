@@ -7,6 +7,15 @@ export function AnnotationQuote({
   quote: string;
   location: DocumentLocation;
 }) {
+  if (location.type === "method-analysis")
+    return (
+      <span className="annotation-quote-pair">
+        <span>
+          <span className="annotation-quote-label">方法解析</span>
+          <span>{quote}</span>
+        </span>
+      </span>
+    );
   const pair = location.type === "pdf" ? location.sentenceLink : undefined;
   if (!pair?.parts.length) return <>{quote}</>;
   const source =

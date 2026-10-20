@@ -31,13 +31,14 @@ export function SourceReferences({
   const cards = referenceCards(message, toc);
   if (!cards.length) return null;
   const choose = async (card: ReferenceCard) => {
-    if (!adapter || pending) return;
+    if (pending || (!card.location && !adapter)) return;
     const serial = ++request.current;
     setPending(card.id);
     setError("");
     try {
       let target = card.location;
       if (!target) {
+        if (!adapter) return;
         // Search the original excerpt, not a model-generated paraphrase.
         const text = card.text.replace(/\s+/g, " ").trim();
         let matches = await adapter.search(text.slice(0, 80));
@@ -60,7 +61,8 @@ export function SourceReferences({
       }
       await onNavigate(target, card.text);
       if (serial === request.current) {
-        adapter.flashReference?.(target, card.text);
+        if (target.type !== "method-analysis")
+          adapter?.flashReference?.(target, card.text);
         setCandidates(undefined);
       }
     } catch (e) {
@@ -72,17 +74,29 @@ export function SourceReferences({
   return (
     <div className="chat-user-references">
       {candidates && <p className="reference-prompt">选择原文位置</p>}
-      <div className="reference-list" role="list" aria-label="原文引用列表">
+      <div
+        className="reference-list"
+        role="list"
+        aria-label={
+          cards.some((card) => card.location?.type === "method-analysis")
+            ? "内容引用列表"
+            : "原文引用列表"
+        }
+      >
         {(candidates || cards).map((card) => (
           <div role="listitem" key={card.id}>
             <Button
               variant="ghost"
               className="reference-card"
-              disabled={!adapter || !!pending}
+              disabled={(!card.location && !adapter) || !!pending}
               onClick={() => void choose(card)}
             >
               <span className="reference-card-heading">
-                <span title={card.label}>引用原文 · {card.label}</span>
+                <span title={card.label}>
+                  {card.location?.type === "method-analysis"
+                    ? `引用${card.label}`
+                    : `引用原文 · ${card.label}`}
+                </span>
                 {pending === card.id ? (
                   <Loader2 className="size-3 animate-spin" />
                 ) : (

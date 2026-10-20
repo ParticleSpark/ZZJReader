@@ -44,6 +44,30 @@ it("keeps the page or chapter used for automatic context, independent of subsequ
     })[0].location,
   ).toEqual({ type: "epub", href: "ch2.xhtml", progression: 0 });
 });
+it("labels analysis references separately and retains their saved version and offsets", () => {
+  const location: DocumentLocation = {
+    type: "method-analysis",
+    contentHash: "a".repeat(64),
+    start: 14,
+    end: 28,
+    quote: "A method explained.",
+  };
+  const cards = referenceCards(
+    { references: [{ text: location.quote!, location, kind: "selection" }] },
+    [],
+  );
+  expect(cards[0].label).toBe("方法解析 · 重点句");
+  expect(cards[0].location).toEqual(location);
+  const references = contextReferences("A method explained.", location);
+  expect(references[0]).toEqual({
+    text: "A method explained.",
+    location,
+    kind: "section",
+  });
+  location.start = 0;
+  expect(references[0].location).toMatchObject({ start: 14, end: 28 });
+  expect(referenceCards({ references }, [])[0].label).toBe("方法解析");
+});
 it("returns to the original position after visiting multiple citations", async () => {
   let current: DocumentLocation = { type: "pdf", page: 8, x: 0.1, y: 0.65 };
   const reader = {

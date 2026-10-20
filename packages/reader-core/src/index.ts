@@ -57,7 +57,17 @@ export type EPUBLocation = {
   progression?: number;
   quote?: string;
 };
-export type DocumentLocation = PDFLocation | EPUBLocation;
+export type MethodAnalysisLocation = {
+  type: "method-analysis";
+  /** SHA-256 of the saved Markdown, identifying the analysis version. */
+  contentHash: string;
+  /** UTF-16 offsets in rendered selectable text, not Markdown source. */
+  start: number;
+  end: number;
+  quote?: string;
+};
+export type DocumentLocation =
+  PDFLocation | EPUBLocation | MethodAnalysisLocation;
 export type DocumentCategory = "book" | "article" | "paper";
 /** Books and papers are separate libraries; papers are PDFs up to 150 pages and 50 MB. */
 export type LibraryMode = "books" | "papers";
@@ -436,6 +446,7 @@ export interface ReaderAdapter {
 }
 export function locationLabel(location?: DocumentLocation): string {
   if (!location) return "尚未开始";
+  if (location.type === "method-analysis") return "方法解析";
   return location.type === "pdf"
     ? `第 ${location.page} 页`
     : `章节进度 ${Math.round((location.progression ?? 0) * 100)}%`;

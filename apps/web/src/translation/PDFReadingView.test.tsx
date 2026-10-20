@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { act, useEffect } from "react";
+import { webcrypto } from "node:crypto";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "@reader/api";
 import {
   defaultTheme,
+  type Annotation,
   type Document,
   type PDFBlock,
   type PDFReadingAnchor,
@@ -107,8 +109,13 @@ vi.mock("../ReaderView", () => ({
   },
 }));
 import { PDFReadingView } from "./PDFReadingView";
+import { methodAnalysisContentHash } from "../method-analysis/method-analysis-text";
 let root: Root, host: HTMLDivElement;
-const events = { location: vi.fn(), selection: vi.fn() };
+const events = {
+  location: vi.fn(),
+  selection: vi.fn(),
+  annotation: vi.fn(),
+};
 beforeEach(async () => {
   fixture.openingAnchor = undefined;
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -148,6 +155,7 @@ async function renderView(
     processing?: Processing;
     library?: "papers" | "books";
     parsed?: boolean;
+    annotations?: Annotation[];
   },
 ) {
   await act(async () =>
@@ -157,7 +165,7 @@ async function renderView(
           { id: "doc", type: "pdf", library: status?.library } as Document
         }
         theme={theme}
-        annotations={[]}
+        annotations={status?.annotations ?? []}
         searchResults={searchResults}
         processing={status?.processing}
         blocks={
@@ -234,6 +242,190 @@ it("starts paper analysis from the toolbar while leaving books unchanged", async
   await act(async () => button.click());
   expect(api.startMethodAnalysis).toHaveBeenCalledExactlyOnceWith("doc", false);
   expect(host.querySelector('[aria-label="论文方法解析"]')).toBeTruthy();
+});
+
+it("opens a saved method reference, shares selections and returns to the PDF without changing paper progress", async () => {
+  vi.stubGlobal("crypto", webcrypto);
+  Object.defineProperty(Range.prototype, "getClientRects", {
+    configurable: true,
+    value: () => [new DOMRect(20, 30, 120, 20)],
+  });
+  Object.defineProperty(Range.prototype, "getBoundingClientRect", {
+    configurable: true,
+    value: () => new DOMRect(20, 30, 120, 20),
+  });
+  try {
+    await renderView(defaultTheme, [], [], { library: "papers", parsed: true });
+    const location = {
+      type: "method-analysis" as const,
+      contentHash: await methodAnalysisContentHash("论文方法解析结果"),
+      start: 2,
+      end: 6,
+      quote: "方法解析",
+    };
+    let focus!: Promise<void>;
+    await act(async () => {
+      focus = fixture.ready!.focusLocation!(location);
+    });
+    await act(async () => await focus);
+    expect(api.startMethodAnalysis).not.toHaveBeenCalled();
+    expect(adapter.goTo).not.toHaveBeenCalled();
+    expect(await fixture.ready!.getContext()).toBe("论文方法解析结果");
+    expect(fixture.ready!.getLocation()).toEqual(location);
+    expect(
+      events.location.mock.calls.some(
+        ([value]) => value.type === "method-analysis",
+      ),
+    ).toBe(false);
+
+    const text = host.querySelector(".method-analysis-body p")!.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 2);
+    range.setEnd(text, 6);
+    await act(async () => {
+      window.getSelection()!.removeAllRanges();
+      window.getSelection()!.addRange(range);
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+    const selected = fixture.ready!.getSelection()!;
+    expect(selected.text).toBe("方法解析");
+    expect(selected.location).toEqual(location);
+    expect(await fixture.ready!.prepareAnnotation!(selected)).toEqual(selected);
+    expect(events.selection).toHaveBeenLastCalledWith(selected);
+    // The still-mounted PDF engine also observes global selection changes.
+    await act(async () => fixture.events!.selection(null));
+    expect(events.selection).toHaveBeenLastCalledWith(selected);
+    await act(async () => fixture.ready!.clearSelection());
+    expect(events.selection).toHaveBeenLastCalledWith(null);
+    await act(async () => fixture.ready!.goTo({ type: "pdf", page: 2 }));
+    expect(host.querySelector(".method-analysis-page")).toBeNull();
+    expect(adapter.goTo).toHaveBeenLastCalledWith({ type: "pdf", page: 2 });
+  } finally {
+    window.getSelection()?.removeAllRanges();
+    delete (Range.prototype as Partial<Range>).getClientRects;
+    delete (Range.prototype as Partial<Range>).getBoundingClientRect;
+  }
+});
+
+it("activates method marks without hidden translation marks intercepting the same pointer coordinates", async () => {
+  vi.stubGlobal("crypto", webcrypto);
+  const highlights = new Map<string, Set<Range>>();
+  vi.stubGlobal("CSS", { highlights });
+  vi.stubGlobal(
+    "Highlight",
+    class extends Set<Range> {
+      constructor(...ranges: Range[]) {
+        super(ranges);
+      }
+    },
+  );
+  // Hidden ranges retain their layout geometry in the browser. Give both
+  // articles the same coordinates so the former root-level listener collides.
+  Object.defineProperty(Range.prototype, "getClientRects", {
+    configurable: true,
+    value: () => [new DOMRect(20, 30, 120, 20)],
+  });
+  Object.defineProperty(Range.prototype, "getBoundingClientRect", {
+    configurable: true,
+    value: () => new DOMRect(20, 30, 120, 20),
+  });
+  try {
+    const translated: Annotation = {
+      id: "translation-mark",
+      documentId: "doc",
+      kind: "highlight",
+      color: "#e6b94c",
+      note: "",
+      quote: "第一句。",
+      createdAt: "",
+      location: {
+        type: "pdf",
+        page: 1,
+        translation: {
+          blockId: "p1-b1",
+          sourceHash: "hash",
+          sentenceIndexes: [0],
+          start: 4,
+          end: 8,
+        },
+      },
+    };
+    const method: Annotation = {
+      ...translated,
+      id: "method-mark",
+      quote: "方法解析",
+      location: {
+        type: "method-analysis",
+        contentHash: await methodAnalysisContentHash("论文方法解析结果"),
+        start: 2,
+        end: 6,
+        quote: "方法解析",
+      },
+    };
+    await renderView(defaultTheme, [], [], {
+      library: "papers",
+      parsed: true,
+      annotations: [translated, method],
+    });
+    await click("原文译文");
+    const clickText = async (element: Element) => {
+      await act(async () => {
+        for (const type of ["pointerdown", "pointerup", "click"])
+          element.dispatchEvent(
+            new MouseEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              button: 0,
+              clientX: 30,
+              clientY: 40,
+            }),
+          );
+      });
+    };
+    const translatedText = host.querySelector('[data-sentence="0"]')!;
+    const translatedRange = [...highlights.values()]
+      .flatMap((ranges) => [...ranges])
+      .find((range) => range.toString() === "第一句。");
+    expect(translatedRange).toBeDefined();
+    await clickText(translatedText);
+    expect(events.annotation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ids: ["translation-mark"] }),
+    );
+
+    const tab = [...host.querySelectorAll('[role="tab"]')].find(
+      (item) => item.textContent === "方法解析",
+    ) as HTMLButtonElement;
+    await act(async () => tab.click());
+    await vi.waitFor(() =>
+      expect(fixture.ready!.getLocation().type).toBe("method-analysis"),
+    );
+    expect(
+      host.querySelector(".translation-stage")?.getAttribute("inert"),
+    ).toBe("");
+    expect(translatedRange!.startContainer.isConnected).toBe(true);
+    expect(translatedRange!.getBoundingClientRect()).toEqual(
+      new DOMRect(20, 30, 120, 20),
+    );
+    expect(
+      [...highlights.values()].flatMap((ranges) =>
+        [...ranges].map((range) => range.toString()),
+      ),
+    ).toContain("方法解析");
+    events.annotation.mockClear();
+    await clickText(host.querySelector(".method-analysis-body p")!);
+    expect(events.annotation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ids: ["method-mark"] }),
+    );
+    expect(
+      events.annotation.mock.calls.some(([target]) =>
+        target?.ids.includes("translation-mark"),
+      ),
+    ).toBe(false);
+  } finally {
+    window.getSelection()?.removeAllRanges();
+    delete (Range.prototype as Partial<Range>).getClientRects;
+    delete (Range.prototype as Partial<Range>).getBoundingClientRect;
+  }
 });
 
 it("replaces the parsing notice with the actual failure and retry guidance", async () => {

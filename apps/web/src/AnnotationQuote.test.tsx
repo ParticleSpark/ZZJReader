@@ -43,3 +43,21 @@ it("keeps existing unlinked annotations unchanged", () => {
     ),
   ).toBe("旧批注");
 });
+it("labels analysis excerpts without presenting them as original or translated text", () => {
+  const html = renderToStaticMarkup(
+    <AnnotationQuote
+      quote="解读公式的计算过程。"
+      location={{
+        type: "method-analysis",
+        contentHash: "a".repeat(64),
+        start: 20,
+        end: 31,
+      }}
+    />,
+  );
+  expect(html).toContain('class="annotation-quote-label">方法解析</span>');
+  expect(html).toContain("<span>解读公式的计算过程。</span>");
+  expect(html).not.toContain("原文");
+  expect(html).not.toContain("译文");
+  expect(html).not.toContain("第 1 页");
+});

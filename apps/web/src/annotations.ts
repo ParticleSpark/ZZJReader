@@ -23,10 +23,20 @@ export function applySavedAnnotation(
   return next;
 }
 
-/** Reading order: page and vertical position for PDFs, progression for EPUBs. */
+/** Reading order within the original document, then analysis versions and offsets. */
 export function documentOrder(a: Annotation, b: Annotation) {
   const x = a.location,
     y = b.location;
+  if (x.type === "method-analysis" || y.type === "method-analysis") {
+    if (x.type !== "method-analysis") return -1;
+    if (y.type !== "method-analysis") return 1;
+    return (
+      x.contentHash.localeCompare(y.contentHash) ||
+      x.start - y.start ||
+      x.end - y.end ||
+      a.createdAt.localeCompare(b.createdAt)
+    );
+  }
   if (x.type === "pdf" && y.type === "pdf")
     return (
       x.page - y.page ||
@@ -86,7 +96,11 @@ export function annotationContext(
     lines.push(`${label}（${items.length} 处）：`);
     for (const a of items) {
       const place =
-        a.location.type === "pdf" ? `第 ${a.location.page} 页` : "章节";
+        a.location.type === "pdf"
+          ? `第 ${a.location.page} 页`
+          : a.location.type === "method-analysis"
+            ? "方法解析（AI生成解读，非论文原文）"
+            : "章节";
       const quote = a.quote.replace(/\s+/g, " ").slice(0, 300);
       const note = a.note.trim()
         ? ` —— ${a.kind === "question" ? "问题" : "批注"}：${a.note.replace(/\s+/g, " ").slice(0, 200)}`

@@ -73,6 +73,14 @@
 .method-analysis-draft:not(:first-child) {
   margin-top: 32px;
 }
+.method-analysis-body {
+  user-select: text;
+}
+.method-analysis-body:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
 @keyframes method-analysis-spin {
   to {
     transform: rotate(360deg);

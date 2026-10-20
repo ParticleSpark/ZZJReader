@@ -741,7 +741,8 @@ export class EPUBReaderAdapter implements ReaderAdapter {
     const decorations = await Promise.all(
       annotations
         .filter(
-          (a) => a.location.type === "epub" && a.kind !== "bookmark" && a.quote,
+          (a): a is Annotation & { location: EPUBLocation } =>
+            a.location.type === "epub" && a.kind !== "bookmark" && !!a.quote,
         )
         .flatMap((a) => {
           const locations =
@@ -758,7 +759,7 @@ export class EPUBReaderAdapter implements ReaderAdapter {
         })
         .map(async (a): Promise<Decoration | undefined> => {
           try {
-            const location = a.location as EPUBLocation;
+            const location = a.location;
             const locator = await this.exactLocator({
               ...location,
               quote: location.quote || a.quote,

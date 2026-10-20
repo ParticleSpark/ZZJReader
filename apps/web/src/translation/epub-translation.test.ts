@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { expect, it } from "vitest";
+import { assert, expect, it } from "vitest";
 import type {
   EPUBReadingBlock,
   TranslationBlock,
@@ -100,7 +100,7 @@ it("persists cross-paragraph translated marks and rejects stale source versions"
     input,
     translations,
   )!.selection;
-  expect(selected.location.type).toBe("epub");
+  assert(selected.location.type === "epub");
   expect(selected.location).not.toHaveProperty("page");
   expect(
     selected.location.translation!.ranges!.map((r) => r.location?.href),

@@ -27,6 +27,7 @@ import {
   MethodAnalysisPage,
 } from "../method-analysis/MethodAnalysisPage";
 import { useMethodAnalysis } from "../method-analysis/useMethodAnalysis";
+import { useMethodReaderBridge } from "../method-reader-bridge";
 import { TranslationPanes } from "./TranslationPanes";
 import { TranslationText } from "./TranslationText";
 import { translatedSelection } from "./selection";
@@ -60,6 +61,9 @@ export function EPUBReadingView({
   const noteOpen = overlay === "note";
   const methodOpen = overlay === "method" && doc.library === "papers";
   const covered = noteOpen || methodOpen;
+  const methodReader = useMethodReaderBridge(doc.id, methodOpen, (open) =>
+    setOverlay(open ? "method" : undefined),
+  );
   const methodAnalysis = useMethodAnalysis(
     doc.library === "papers" ? doc.id : undefined,
     methodOpen,
@@ -93,8 +97,17 @@ export function EPUBReadingView({
     events,
     annotations,
     chapter,
+    covered,
   });
-  live.current = { mode, blocks, translations, events, annotations, chapter };
+  live.current = {
+    mode,
+    blocks,
+    translations,
+    events,
+    annotations,
+    chapter,
+    covered,
+  };
   const visible = blocks;
   const targetNode = (id: string) =>
     Array.from(
@@ -171,6 +184,14 @@ export function EPUBReadingView({
     setLinked({});
     void engine.current?.focusEPUBLocations?.([]);
   };
+  useEffect(() => {
+    if (!covered) return;
+    selection.current = null;
+    live.current.events.selection(null);
+    live.current.events.annotation?.(null);
+    engine.current?.clearSelection();
+    setLinked({});
+  }, [covered]);
   const syncSource = async (location: EPUBLocation) => {
     if (live.current.mode !== "parallel") return;
     syncTarget.current = location;
@@ -244,14 +265,18 @@ export function EPUBReadingView({
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       if (
+        !live.current.covered &&
         !pane.current?.contains(event.target as Node) &&
         !isSelectionToolbar(event.target) &&
+        selection.current?.location.type === "epub" &&
         selection.current?.location.translation
       )
         clear();
     };
     const changed = () => {
       if (
+        !live.current.covered &&
+        selection.current?.location.type === "epub" &&
         selection.current?.location.translation &&
         !window.getSelection()?.toString().trim()
       ) {
@@ -415,7 +440,9 @@ export function EPUBReadingView({
               <ReaderView
                 document={doc}
                 theme={theme}
-                annotations={annotations}
+                annotations={annotations.filter(
+                  (a) => a.location.type === "epub",
+                )}
                 onReady={(adapter, toc) => {
                   engine.current = adapter;
                   const initial = adapter.getLocation();
@@ -445,24 +472,33 @@ export function EPUBReadingView({
                     },
                   };
                   onReady(
-                    new Proxy(adapter, {
-                      get(target, key: keyof ReaderAdapter) {
-                        const value = overrides[key] ?? target[key];
-                        return typeof value === "function"
-                          ? value.bind(target)
-                          : value;
-                      },
-                    }),
+                    methodReader.wrap(
+                      new Proxy(adapter, {
+                        get(target, key: keyof ReaderAdapter) {
+                          const value = overrides[key] ?? target[key];
+                          return typeof value === "function"
+                            ? value.bind(target)
+                            : value;
+                        },
+                      }),
+                    ),
                     toc,
                   );
                 }}
                 events={{
                   ...events,
+                  annotation: (target) => {
+                    if (!live.current.covered) events.annotation?.(target);
+                  },
                   epubInteraction: () => {
+                    if (live.current.covered) return;
                     side.current = "source";
                     syncTarget.current = undefined;
                     void engine.current?.focusEPUBLocations?.([]);
-                    if (selection.current?.location.translation) {
+                    if (
+                      selection.current?.location.type === "epub" &&
+                      selection.current.location.translation
+                    ) {
                       selection.current = null;
                       window.getSelection()?.removeAllRanges();
                       live.current.events.selection(null);
@@ -470,6 +506,7 @@ export function EPUBReadingView({
                   },
                   location: (location, percent) => {
                     if (
+                      live.current.covered ||
                       location.type !== "epub" ||
                       side.current === "translation"
                     )
@@ -486,6 +523,7 @@ export function EPUBReadingView({
                       follow(id);
                   },
                   selection: (value) => {
+                    if (live.current.covered) return;
                     if (
                       !value &&
                       (side.current === "translation" || navigating.current)
@@ -649,7 +687,13 @@ export function EPUBReadingView({
       </div>
       {noteOpen && <DocumentNotePage documentId={doc.id} />}
       {methodOpen && (
-        <MethodAnalysisPage documentId={doc.id} analysis={methodAnalysis} />
+        <MethodAnalysisPage
+          documentId={doc.id}
+          analysis={methodAnalysis}
+          annotations={annotations}
+          events={events}
+          onReady={methodReader.register}
+        />
       )}
     </div>
   );

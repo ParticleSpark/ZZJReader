@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { Document, DocumentLocation } from "@reader/core";
+import type { Document, EPUBLocation, PDFLocation } from "@reader/core";
 import {
   forgetLibraryDocuments,
   openLinkTarget,
@@ -75,7 +75,7 @@ it("drops a trashed paper from the tabs and keeps another one open", () => {
   ]);
 });
 
-const locations: DocumentLocation[] = [
+const locations: (PDFLocation | EPUBLocation)[] = [
   { type: "pdf", page: 10, x: 0.2, y: 0.4 },
   {
     type: "epub",

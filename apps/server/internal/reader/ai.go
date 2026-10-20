@@ -107,6 +107,10 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		fail(w, 404, "文档不存在")
 		return
 	}
+	if !validMethodAnalysisReferences(req.References, d) {
+		fail(w, 400, "方法解析引用的位置或内容无效")
+		return
+	}
 	ctx, finish, err := s.beginDocumentTask(r.Context(), d.ID)
 	if err != nil {
 		fail(w, 409, "文档正在删除")

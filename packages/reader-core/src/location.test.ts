@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { locationLabel, type DocumentLocation } from "./index";
+import {
+  locationLabel,
+  type DocumentLocation,
+  type MethodAnalysisLocation,
+} from "./index";
 describe("format-specific persistent locations", () => {
   it("retains EPUB locators without inventing page numbers", () => {
     const saved: DocumentLocation = {
@@ -25,5 +29,21 @@ describe("format-specific persistent locations", () => {
     };
     expect(locationLabel(saved)).toBe("第 12 页");
     expect(JSON.parse(JSON.stringify(saved)).rects[0].width).toBe(0.4);
+  });
+  it("keeps method-analysis version and UTF-16 offsets outside source locations", () => {
+    const quote = "法😀";
+    const saved: MethodAnalysisLocation = {
+      type: "method-analysis",
+      contentHash: "a".repeat(64),
+      start: 4,
+      end: 4 + quote.length,
+      quote,
+    };
+    const restored: DocumentLocation = JSON.parse(JSON.stringify(saved));
+    expect(restored).toEqual(saved);
+    expect(saved.end).toBe(7);
+    expect(locationLabel(restored)).toBe("方法解析");
+    expect(restored).not.toHaveProperty("page");
+    expect(restored).not.toHaveProperty("href");
   });
 });

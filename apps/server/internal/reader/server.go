@@ -687,7 +687,7 @@ func (s *Server) saveAnnotation(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &a) {
 		return
 	}
-	if !validLocation(a.Location, d.Type) || (a.Kind != "highlight" && a.Kind != "underline" && a.Kind != "note" && a.Kind != "question" && a.Kind != "bookmark") {
+	if !validAnnotationLocation(a.Location, d) || (a.Kind != "highlight" && a.Kind != "underline" && a.Kind != "note" && a.Kind != "question" && a.Kind != "bookmark") {
 		fail(w, 400, "批注类型或位置无效")
 		return
 	}
