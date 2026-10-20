@@ -88,19 +88,48 @@ export function MethodAnalysisButton({
   analysis: MethodAnalysisController;
   onOpen: () => void;
 }) {
+  const { job, pending, loading, error, modelSaving } = analysis;
+  const running = analysisRunning(job);
+  const complete = job?.status === "complete";
+  const waiting = loading && !job;
+  const readFailed = !!error && !job;
+  const label = waiting
+    ? "正在读取…"
+    : pending
+      ? "正在处理…"
+      : job?.status === "queued"
+        ? "等待解析…"
+        : running
+          ? "正在解析…"
+          : complete
+            ? "解析完成"
+            : readFailed
+              ? "重试读取"
+              : job?.status === "failed"
+                ? "重试解析"
+                : "开始解析";
   return (
     <Button
       variant="ghost"
       size="sm"
-      disabled={analysis.pending || analysis.modelSaving}
-      title="使用 AI 助读模型解析整篇论文的方法"
+      disabled={pending || modelSaving || waiting || running || complete}
+      title={
+        complete
+          ? "解析已完成，可在“方法解析”中查看结果"
+          : "使用 AI 助读模型解析整篇论文的方法"
+      }
       onClick={() => {
         onOpen();
-        if (!analysisRunning(analysis.job)) void analysis.start();
+        if (readFailed) analysis.refresh();
+        else void analysis.start();
       }}
     >
-      <ScanText />
-      方法解析
+      {waiting || pending || running ? (
+        <LoaderCircle className="method-analysis-spinner" />
+      ) : (
+        <ScanText />
+      )}
+      {label}
     </Button>
   );
 }

@@ -215,7 +215,14 @@ it("opens saved paper analysis without starting AI and retains the PDF reader be
     "方法解析",
     "笔记",
   ]);
-  expect(api.methodAnalysis).not.toHaveBeenCalled();
+  expect(api.methodAnalysis).toHaveBeenCalledExactlyOnceWith("doc");
+  const completed = [
+    ...host.querySelectorAll<HTMLButtonElement>("button"),
+  ].find((button) => button.textContent === "解析完成")!;
+  expect(completed.disabled).toBe(true);
+  await act(async () => completed.click());
+  expect(api.startMethodAnalysis).not.toHaveBeenCalled();
+  expect(host.querySelector(".method-analysis-page")).toBeNull();
   await act(async () =>
     tabs.find((tab) => tab.textContent === "方法解析")!.click(),
   );
@@ -235,10 +242,16 @@ it("opens saved paper analysis without starting AI and retains the PDF reader be
 it("starts paper analysis from the toolbar while leaving books unchanged", async () => {
   await renderView(defaultTheme, [], [], { library: "books", parsed: true });
   expect(host.textContent).not.toContain("方法解析");
+  vi.mocked(api.methodAnalysis).mockResolvedValueOnce({
+    documentId: "doc",
+    status: "idle",
+    content: "",
+    detail: "",
+  });
   await renderView(defaultTheme, [], [], { library: "papers", parsed: true });
   const button = [
     ...host.querySelectorAll<HTMLButtonElement>('button:not([role="tab"])'),
-  ].find((button) => button.textContent === "方法解析")!;
+  ].find((button) => button.textContent === "开始解析")!;
   await act(async () => button.click());
   expect(api.startMethodAnalysis).toHaveBeenCalledExactlyOnceWith("doc", false);
   expect(host.querySelector('[aria-label="论文方法解析"]')).toBeTruthy();

@@ -66,7 +66,7 @@ export function EPUBReadingView({
   );
   const methodAnalysis = useMethodAnalysis(
     doc.library === "papers" ? doc.id : undefined,
-    methodOpen,
+    doc.library === "papers",
   );
   useEffect(() => setOverlay(undefined), [doc.id]);
   const [swapped, setSwapped] = useState(false);

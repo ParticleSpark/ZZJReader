@@ -102,7 +102,7 @@ export function PDFReadingView({
   );
   const methodAnalysis = useMethodAnalysis(
     doc.library === "papers" ? doc.id : undefined,
-    methodOpen,
+    doc.library === "papers",
   );
   useEffect(() => setOverlay(undefined), [doc.id]);
   const { translations, error } = useTranslations(doc.id);
