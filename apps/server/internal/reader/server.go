@@ -49,6 +49,10 @@ type Server struct {
 	processingControlMu    sync.Mutex
 	activeProcessing       map[string]*documentTask
 	blockedProcessing      map[string]bool
+	methodMu               sync.Mutex
+	activeMethods          map[string]*documentTask
+	layoutMu               sync.Mutex
+	layoutLocks            map[string]*documentLayoutLock
 	modelMu                sync.Mutex
 	modelCache             map[string]modelCatalogEntry
 	scholarMu              sync.Mutex
@@ -105,6 +109,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/documents/{id}/metadata/lookup", s.lookupMetadata)
 	mux.HandleFunc("GET /api/processing", s.processingList)
 	mux.HandleFunc("POST /api/documents/{id}/processing", s.retryProcessing)
+	mux.HandleFunc("GET /api/documents/{id}/method-analysis", s.getMethodAnalysis)
+	mux.HandleFunc("POST /api/documents/{id}/method-analysis", s.controlMethodAnalysis)
 	mux.HandleFunc("GET /api/documents/{id}/assistance", s.getAssistance)
 	mux.HandleFunc("POST /api/documents/{id}/assistance", s.setAssistance)
 	mux.HandleFunc("POST /api/documents/{id}/translations/range", s.requestTranslationRange)
@@ -170,6 +176,19 @@ func (s *Server) Handler() http.Handler {
 		if value, exists := v["autoTranslatePDF"]; exists {
 			if _, ok := value.(bool); !ok {
 				fail(w, 400, "自动翻译设置必须为布尔值")
+				return
+			}
+		}
+		if value, exists := v["autoAnalyzeMethods"]; exists {
+			if _, ok := value.(bool); !ok {
+				fail(w, 400, "自动方法解析设置必须为布尔值")
+				return
+			}
+		}
+		if value, exists := v["methodAnalysisPrompt"]; exists {
+			text, ok := value.(string)
+			if !ok || utf8.RuneCountInString(text) > methodAnalysisPromptLimit {
+				fail(w, 400, "方法解析要求必须为不超过 4000 字的文本")
 				return
 			}
 		}
@@ -454,6 +473,9 @@ func (s *Server) importFile(ctx context.Context, temp, filename, library string,
 		p := initialDocumentProcessing(d, settings)
 		b, _ := json.Marshal(p)
 		_, err = tx.Exec("INSERT INTO document_processing(document_id,phase,status,body) VALUES(?,?,?,?)", d.ID, p.Phase, p.Status, b)
+	}
+	if err == nil {
+		err = enqueueImportedMethodAnalysis(tx, d)
 	}
 	if err == nil {
 		err = tx.Commit()

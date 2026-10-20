@@ -2786,6 +2786,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documents/{id}/method-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Read a paper's saved method analysis and current background task without starting a model request */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Analysis state; idle when not requested */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MethodAnalysis"];
+                    };
+                };
+                /** @description Error */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Start or cancel whole-paper method analysis using the AI reading model
+         * @description Only PDF/EPUB papers are supported. Repeated starts reuse queued, running or completed work. Set force to request a new analysis after completion. The last successful content is retained if regeneration fails or is canceled. Leaving the reading page does not cancel the task. Full text is never silently truncated. Automatic analysis is queued only when new papers are imported with autoAnalyzeMethods enabled.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        action: "start" | "cancel";
+                        /** @description Request regeneration after completion. Disabled when omitted. */
+                        force?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Current analysis state after starting, reusing or canceling a task */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MethodAnalysis"];
+                    };
+                };
+                /** @description Error */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/documents/{id}/note": {
         parameters: {
             query?: never;
@@ -3045,7 +3137,28 @@ export interface components {
             authenticated: boolean;
             status: string;
         };
+        MethodAnalysis: {
+            documentId: string;
+            /** @enum {string} */
+            status: "idle" | "queued" | "running" | "complete" | "failed" | "canceled";
+            /** @description Last successfully completed Markdown result; retained during retries */
+            content: string;
+            /** @description Current task progress or outcome */
+            detail: string;
+            /** @description Incomplete output from the current task; not a completed result */
+            draft?: string;
+            error?: string;
+            provider?: string;
+            model?: string;
+            updatedAt?: string;
+            startedAt?: string;
+            completedAt?: string;
+        };
         Settings: {
+            /** @description Queue whole-paper method analysis for subsequently imported papers. Disabled when omitted. Does not start work for existing documents or change translation settings. */
+            autoAnalyzeMethods?: boolean;
+            /** @description Additional instructions appended to the built-in method-analysis prompt; applied to new analysis runs. Empty when omitted. */
+            methodAnalysisPrompt?: string;
             /** @description Copy selected text and clicked annotation quotes to the clipboard. Disabled when omitted. */
             autoCopySelection?: boolean;
             /** @description Remember whether assistant requests include the current document's complete parsed text. Disabled when omitted. */

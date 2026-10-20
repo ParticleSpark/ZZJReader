@@ -113,7 +113,8 @@ func runLayoutProcess() error {
 	if err := args.Parse(os.Args[2:]); err != nil {
 		return err
 	}
-	if *out == "" || *from < 1 || *to < *from || *to > 80 {
+	wholeDocument := *from == 0 && *to == 0
+	if *out == "" || (!wholeDocument && (*from < 1 || *to < *from || *to > 80)) {
 		return fmt.Errorf("invalid layout arguments: %v", os.Args[2:])
 	}
 	if _, err := os.Stat(*input); err != nil {
@@ -131,6 +132,9 @@ func runLayoutProcess() error {
 	if closeErr != nil {
 		return closeErr
 	}
+	if wholeDocument {
+		*from, *to = 1, 80
+	}
 	if err := os.MkdirAll(filepath.Join(*out, "assets"), 0700); err != nil {
 		return err
 	}
@@ -139,7 +143,9 @@ func runLayoutProcess() error {
 		block := PDFBlock{ID: fmt.Sprintf("p%d-b1", page), Page: page, Label: "text", Text: strings.Repeat("Sentence number. ", 60)}
 		block.Bounds.X, block.Bounds.Y, block.Bounds.Width, block.Bounds.Height = .1, .1, .5, .3
 		m.Blocks = append(m.Blocks, block)
-		m.ParsedPages = append(m.ParsedPages, page)
+		if !wholeDocument {
+			m.ParsedPages = append(m.ParsedPages, page)
+		}
 		if _, err := fmt.Fprintf(os.Stdout, "{\"event\":\"page\",\"page\":%d,\"total\":80}\n", page); err != nil {
 			return err
 		}

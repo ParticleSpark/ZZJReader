@@ -95,6 +95,7 @@ func OpenStore(root string) (*Store, error) {
  CREATE TABLE IF NOT EXISTS tag_boards(id TEXT PRIMARY KEY,name TEXT NOT NULL,tags TEXT NOT NULL,match TEXT NOT NULL CHECK(match IN ('all','any')));
  CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS document_notes(document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,body TEXT NOT NULL,updated_at TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS document_method_analysis(document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,status TEXT NOT NULL,body TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS document_relations(a TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,b TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,created_at TEXT NOT NULL,PRIMARY KEY(a,b),CHECK(a<b));
  CREATE TABLE IF NOT EXISTS connector_snapshots(document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,source_url TEXT NOT NULL,body TEXT NOT NULL,created_at TEXT NOT NULL);
  CREATE INDEX IF NOT EXISTS document_relations_b ON document_relations(b);

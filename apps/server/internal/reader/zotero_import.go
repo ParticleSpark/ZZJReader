@@ -358,6 +358,10 @@ func (s *Server) importZoteroEntry(ctx context.Context, e *zoteroEntry) (zoteroI
 		if _, err = tx.ExecContext(ctx, `INSERT INTO document_processing(document_id,phase,status,body) VALUES(?,?,?,?)`, docID, p.Phase, p.Status, data); err != nil {
 			return result, err
 		}
+		// Method analysis is separately opt-in, including for newly migrated papers.
+		if err = enqueueImportedMethodAnalysis(tx, d); err != nil {
+			return result, err
+		}
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO zotero_imports(source_id,document_id,body,created_at) VALUES(?,?,?,?)`, sourceID, docID, e.archive(), now()); err != nil {
 		return result, err

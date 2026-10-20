@@ -71,6 +71,11 @@ func (s *Server) runLayout(ctx context.Context, d Document, work string, from, t
 		}
 		switch event.Event {
 		case "page":
+			// Independent consumers may prepare layout without changing the
+			// user's translation status or enabling translation.
+			if p == nil {
+				continue
+			}
 			p.PagesDone, p.PagesTotal = event.Page, event.Total
 			p.Detail = fmt.Sprintf("已解析 %d / %d 页", event.Page, event.Total)
 			if from > 0 {

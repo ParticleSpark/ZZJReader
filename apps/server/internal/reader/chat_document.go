@@ -34,15 +34,6 @@ func (s *Server) fullDocumentChatText(d Document) (string, error) {
 		if err != nil {
 			return "", errors.New("全文正文尚不可用，请先完成 PDF 解析，或关闭“全文上下文”后提问")
 		}
-		parsed := map[int]bool{}
-		for _, page := range m.ParsedPages {
-			if page > 0 && page <= m.Pages {
-				parsed[page] = true
-			}
-		}
-		if len(m.IncompletePages) > 0 || (len(m.ParsedPages) > 0 && len(parsed) != m.Pages) {
-			return "", errors.New("PDF 仍有页面未完成解析，暂时无法读取全文。请完成解析，或关闭“全文上下文”后提问")
-		}
 		value, err := s.fullPDFChatText(d.ID, m)
 		if err != nil {
 			return "", err
@@ -91,11 +82,24 @@ var chatMarkdownAssets = regexp.MustCompile(`(?m)^\[[^\]\r\n]*\]\(assets/p[1-9][
 // manifest retains extracted table/image text that paper.md represents only as
 // image links. A full parse needs both, with verified page coverage.
 func (s *Server) fullPDFChatText(documentID string, m layoutManifest) (string, error) {
+	return fullPDFChatTextAt(s.analysisDir(documentID), m)
+}
+
+func fullPDFChatTextAt(directory string, m layoutManifest) (string, error) {
+	parsed := map[int]bool{}
+	for _, page := range m.ParsedPages {
+		if page > 0 && page <= m.Pages {
+			parsed[page] = true
+		}
+	}
+	if len(m.IncompletePages) > 0 || (len(m.ParsedPages) > 0 && len(parsed) != m.Pages) {
+		return "", errors.New("PDF 仍有页面未完成解析，暂时无法读取全文。请完成解析，或关闭“全文上下文”后提问")
+	}
 	missing := errors.New("未能验证 PDF 全部页面的正文已解析，请重新解析，或关闭“全文上下文”后提问")
 	pages := map[int]string{}
 	// Chapter merges update only the manifest, so their paper.md may be stale.
 	if len(m.ParsedPages) == 0 {
-		file, err := os.Open(filepath.Join(s.analysisDir(documentID), "paper.md"))
+		file, err := os.Open(filepath.Join(directory, "paper.md"))
 		if err == nil {
 			defer file.Close()
 			data, readErr := io.ReadAll(io.LimitReader(file, fullDocumentChatBytes+1))

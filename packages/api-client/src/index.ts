@@ -14,6 +14,7 @@ import type {
   SearchResult,
   Provider,
   Message,
+  MethodAnalysis,
   ReaderTheme,
   SourceReference,
   Processing,
@@ -110,6 +111,20 @@ function annotationRequest<T>(path: string, init: RequestInit): Promise<T> {
 export type ZoteroScan = components["schemas"]["ZoteroScan"];
 export type ZoteroImportResult = components["schemas"]["ZoteroImportResult"];
 export const api = {
+  methodAnalysis: (id: string) =>
+    request<MethodAnalysis>(
+      `/api/documents/${encodeURIComponent(id)}/method-analysis`,
+    ),
+  startMethodAnalysis: (id: string, force = false) =>
+    request<MethodAnalysis>(
+      `/api/documents/${encodeURIComponent(id)}/method-analysis`,
+      { method: "POST", body: JSON.stringify({ action: "start", force }) },
+    ),
+  cancelMethodAnalysis: (id: string) =>
+    request<MethodAnalysis>(
+      `/api/documents/${encodeURIComponent(id)}/method-analysis`,
+      { method: "POST", body: JSON.stringify({ action: "cancel" }) },
+    ),
   connectorStatus: () =>
     request<
       paths["/api/connector/status"]["get"]["responses"][200]["content"]["application/json"]

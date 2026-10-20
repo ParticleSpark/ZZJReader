@@ -238,8 +238,11 @@ func (s *Server) analysisDir(id string) string {
 	return filepath.Join(s.Store.Root, "cache", id, "analysis")
 }
 func (s *Server) readLayout(id string) (layoutManifest, error) {
+	return readLayoutAt(s.analysisDir(id))
+}
+func readLayoutAt(directory string) (layoutManifest, error) {
 	var m layoutManifest
-	b, e := os.ReadFile(filepath.Join(s.analysisDir(id), "manifest.json"))
+	b, e := os.ReadFile(filepath.Join(directory, "manifest.json"))
 	if e != nil {
 		return m, e
 	}
@@ -386,6 +389,9 @@ func (s *Server) StartProcessing(parent context.Context) func() {
 	go func() { defer workers.Done(); s.classificationWorker(ctx) }()
 	workers.Add(1)
 	go func() { defer workers.Done(); s.metadataWorker(ctx) }()
+	s.recoverMethodAnalysis()
+	workers.Add(1)
+	go func() { defer workers.Done(); s.methodAnalysisWorker(ctx) }()
 	return func() { cancel(); workers.Wait() }
 }
 func (s *Server) wakeProcessing() {
@@ -416,6 +422,11 @@ func (s *Server) wakeProcessing() {
 	}
 }
 func (s *Server) learnPDF(ctx context.Context, p *Processing) error {
+	unlock, e := s.lockDocumentLayout(ctx, p.DocumentID)
+	if e != nil {
+		return e
+	}
+	defer unlock()
 	d, e := s.Store.Document(p.DocumentID)
 	if e != nil {
 		return e

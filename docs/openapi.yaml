@@ -3196,6 +3196,114 @@
                 },
             },
         },
+      "/api/documents/{id}/method-analysis":
+        {
+          "parameters":
+            [
+              {
+                "in": "path",
+                "name": "id",
+                "required": true,
+                "schema": { "type": "string" },
+              },
+            ],
+          "get":
+            {
+              "summary": "Read a paper's saved method analysis and current background task without starting a model request",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Analysis state; idle when not requested",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/MethodAnalysis",
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+          "post":
+            {
+              "summary": "Start or cancel whole-paper method analysis using the AI reading model",
+              "description": "Only PDF/EPUB papers are supported. Repeated starts reuse queued, running or completed work. Set force to request a new analysis after completion. The last successful content is retained if regeneration fails or is canceled. Leaving the reading page does not cancel the task. Full text is never silently truncated. Automatic analysis is queued only when new papers are imported with autoAnalyzeMethods enabled.",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties":
+                                {
+                                  "action":
+                                    {
+                                      "type": "string",
+                                      "enum": ["start", "cancel"],
+                                    },
+                                  "force":
+                                    {
+                                      "type": "boolean",
+                                      "description": "Request regeneration after completion. Disabled when omitted.",
+                                    },
+                                },
+                              "required": ["action"],
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Current analysis state after starting, reusing or canceling a task",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/MethodAnalysis",
+                                },
+                            },
+                        },
+                    },
+                  "default":
+                    {
+                      "description": "Error",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Error" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
       "/api/documents/{id}/note":
         {
           "get":
@@ -3776,11 +3884,65 @@
                 },
               "required": ["id", "installed", "authenticated", "status"],
             },
+          "MethodAnalysis":
+            {
+              "type": "object",
+              "properties":
+                {
+                  "documentId": { "type": "string" },
+                  "status":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "idle",
+                          "queued",
+                          "running",
+                          "complete",
+                          "failed",
+                          "canceled",
+                        ],
+                    },
+                  "content":
+                    {
+                      "type": "string",
+                      "description": "Last successfully completed Markdown result; retained during retries",
+                    },
+                  "detail":
+                    {
+                      "type": "string",
+                      "description": "Current task progress or outcome",
+                    },
+                  "draft":
+                    {
+                      "type": "string",
+                      "description": "Incomplete output from the current task; not a completed result",
+                    },
+                  "error": { "type": "string" },
+                  "provider": { "type": "string" },
+                  "model": { "type": "string" },
+                  "updatedAt": { "type": "string" },
+                  "startedAt": { "type": "string" },
+                  "completedAt": { "type": "string" },
+                },
+              "required": ["documentId", "status", "content", "detail"],
+            },
           "Settings":
             {
               "type": "object",
               "properties":
                 {
+                  "autoAnalyzeMethods":
+                    {
+                      "type": "boolean",
+                      "description": "Queue whole-paper method analysis for subsequently imported papers. Disabled when omitted. Does not start work for existing documents or change translation settings.",
+                    },
+                  "methodAnalysisPrompt":
+                    {
+                      "type": "string",
+                      "maxLength": 4000,
+                      "description": "Additional instructions appended to the built-in method-analysis prompt; applied to new analysis runs. Empty when omitted.",
+                    },
                   "autoCopySelection":
                     {
                       "type": "boolean",

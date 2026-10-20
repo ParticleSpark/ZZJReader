@@ -259,6 +259,10 @@ export type Appearance = "light" | "sepia" | "cream" | "dark" | "system";
 export type LibraryChrome = "plain" | "zotero";
 export interface ReaderTheme {
   autoTranslatePDF?: boolean;
+  /** Analyze methods only for papers imported after this option is enabled. */
+  autoAnalyzeMethods?: boolean;
+  /** Additional reader-authored instructions for whole-paper method analysis. */
+  methodAnalysisPrompt?: string;
   /** Copy selected text and clicked annotation quotes to the clipboard. */
   autoCopySelection?: boolean;
   /** Include the current document's complete parsed text in assistant replies. */
@@ -293,6 +297,8 @@ export interface HighlightColor {
 }
 export const defaultTheme: ReaderTheme = {
   autoTranslatePDF: true,
+  autoAnalyzeMethods: false,
+  methodAnalysisPrompt: "",
   autoCopySelection: false,
   chatFullDocument: false,
   appearance: "system",
@@ -309,6 +315,22 @@ export const defaultTheme: ReaderTheme = {
   linkTranslationAnnotations: true,
   epubFlow: "scroll",
 };
+/** A background analysis independent of translations, notes and chat history. */
+export interface MethodAnalysis {
+  documentId: string;
+  status: "idle" | "queued" | "running" | "complete" | "failed" | "canceled";
+  /** Last successfully completed analysis, retained during retries. */
+  content: string;
+  detail: string;
+  /** Incomplete output from the current run, never treated as a saved result. */
+  draft?: string;
+  error?: string;
+  provider?: string;
+  model?: string;
+  updatedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
 export type PDFBlockAction = "attach" | "preview" | "explain" | "translate";
 export interface PDFReadingAnchor {
   blockId: string;
