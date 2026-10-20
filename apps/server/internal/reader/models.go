@@ -56,7 +56,14 @@ func (s *Server) agentModels(w http.ResponseWriter, r *http.Request) {
 
 // Model discovery only initializes the installed CLI's protocol. It never sends
 // a user prompt, starts a model turn, or reads the CLI's credential files.
-func discoverModels(ctx context.Context, root, provider string) ([]AgentModel, error) {
+func discoverModels(ctx context.Context, root, provider string) (models []AgentModel, resultErr error) {
+	defer func() {
+		// Cancellation closes the protocol pipes to interrupt reads and writes.
+		// Preserve its cause instead of reporting that close as malformed EOF.
+		if err := ctx.Err(); err != nil {
+			models, resultErr = nil, err
+		}
+	}()
 	if !validAgent(provider) || provider == "api" {
 		return nil, errors.New("unknown agent")
 	}
@@ -141,6 +148,9 @@ func discoverModels(ctx context.Context, root, provider string) ([]AgentModel, e
 				}
 				return m.Result, nil
 			}
+		}
+		if err := scan.Err(); err != nil {
+			return nil, fmt.Errorf("model discovery response: %w", err)
 		}
 		return nil, errors.New("model discovery ended without a response")
 	}

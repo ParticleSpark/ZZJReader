@@ -49,7 +49,18 @@ func runModelProcess() {
 		os.Exit(9)
 	}
 	scanner := bufio.NewScanner(os.Stdin)
+	ready := false
 	for scanner.Scan() {
+		if !ready {
+			path := os.Getenv("READER_AGENT_ACK")
+			if err := os.WriteFile(path+".part", []byte(time.Now().Format(time.RFC3339Nano)), 0600); err != nil {
+				os.Exit(10)
+			}
+			if err := os.Rename(path+".part", path); err != nil {
+				os.Exit(10)
+			}
+			ready = true
+		}
 		line := scanner.Text()
 		switch {
 		case strings.Contains(line, `"subtype":"initialize"`):
