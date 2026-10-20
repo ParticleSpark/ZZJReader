@@ -2,6 +2,7 @@
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { api } from "@reader/api";
 import {
   defaultTheme,
   type Document,
@@ -25,6 +26,19 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock("@reader/api", () => ({
   api: {
+    methodAnalysis: vi.fn(async () => ({
+      documentId: "doc",
+      status: "complete",
+      content: "EPUB 方法解析结果",
+      detail: "",
+    })),
+    startMethodAnalysis: vi.fn(async () => ({
+      documentId: "doc",
+      status: "complete",
+      content: "EPUB 方法解析结果",
+      detail: "",
+    })),
+    saveSettings: vi.fn(async () => ({})),
     epubBlocks: vi.fn(async () => blocks),
     assistance: vi.fn(async () => undefined),
     setAssistance: vi.fn(),
@@ -148,11 +162,14 @@ beforeEach(async () => {
   vi.clearAllMocks();
   await renderView();
 });
-async function renderView(theme: ReaderTheme = defaultTheme) {
+async function renderView(
+  theme: ReaderTheme = defaultTheme,
+  library?: "papers" | "books",
+) {
   await act(async () =>
     root.render(
       <EPUBReadingView
-        document={{ id: "doc", type: "epub" } as Document}
+        document={{ id: "doc", type: "epub", library } as Document}
         theme={theme}
         annotations={[]}
         events={events}
@@ -180,6 +197,29 @@ async function click(label: string) {
   expect(button).toBeTruthy();
   await act(async () => button.click());
 }
+
+it("shows the analysis tab for EPUB papers and preserves their reading location", async () => {
+  expect(host.textContent).not.toContain("方法解析");
+  await renderView(defaultTheme, "papers");
+  const location = {
+    type: "epub" as const,
+    href: "b.xhtml",
+    blockId: "e-b",
+    progression: 0.5,
+  };
+  await act(async () => fixture.events!.location(location, 0.5));
+  const reader = host.querySelector(".translation-source");
+  const tab = [
+    ...host.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+  ].find((button) => button.textContent === "方法解析")!;
+  await act(async () => tab.click());
+  expect(host.textContent).toContain("EPUB 方法解析结果");
+  expect(api.startMethodAnalysis).not.toHaveBeenCalled();
+  await click("仅原文");
+  expect(host.querySelector(".translation-source")).toBe(reader);
+  expect(fixture.ready!.getLocation()).toEqual(location);
+  expect(adapter.destroy).not.toHaveBeenCalled();
+});
 
 it("makes the covered EPUB inert and restores the same chapter position after notes", async () => {
   const position = {

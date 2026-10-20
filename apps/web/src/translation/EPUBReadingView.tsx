@@ -22,6 +22,11 @@ import { toast } from "sonner";
 import { ReaderView } from "../ReaderView";
 import { AssistanceControls } from "./AssistanceControls";
 import { DocumentNotePage } from "../DocumentNotePage";
+import {
+  MethodAnalysisButton,
+  MethodAnalysisPage,
+} from "../method-analysis/MethodAnalysisPage";
+import { useMethodAnalysis } from "../method-analysis/useMethodAnalysis";
 import { TranslationPanes } from "./TranslationPanes";
 import { TranslationText } from "./TranslationText";
 import { translatedSelection } from "./selection";
@@ -51,7 +56,15 @@ export function EPUBReadingView({
   pageNavigation?: ReactNode;
 }) {
   const [mode, setMode] = useState<Mode>("source");
-  const [noteOpen, setNoteOpen] = useState(false);
+  const [overlay, setOverlay] = useState<"note" | "method">();
+  const noteOpen = overlay === "note";
+  const methodOpen = overlay === "method" && doc.library === "papers";
+  const covered = noteOpen || methodOpen;
+  const methodAnalysis = useMethodAnalysis(
+    doc.library === "papers" ? doc.id : undefined,
+    methodOpen,
+  );
+  useEffect(() => setOverlay(undefined), [doc.id]);
   const [swapped, setSwapped] = useState(false);
   const [blocks, setBlocks] = useState<EPUBReadingBlock[]>([]);
   const { translations, error: streamError } = useTranslations(doc.id);
@@ -340,18 +353,31 @@ export function EPUBReadingView({
     void api.translate(doc.id, id, force).catch((e) => toast.error(e.message));
   };
   const toolbar = (
-    <div className="translation-toolbar">
+    <div
+      className="translation-toolbar"
+      data-method-analysis-toolbar={doc.library === "papers" || undefined}
+    >
       <AssistanceControls
         documentId={doc.id}
         processing={processing}
         library="books"
         epubChapter={() => position.current}
       />
+      {doc.library === "papers" && (
+        <MethodAnalysisButton
+          analysis={methodAnalysis}
+          onOpen={() => setOverlay("method")}
+        />
+      )}
       <Tabs
-        value={noteOpen ? "note" : mode}
+        value={noteOpen ? "note" : methodOpen ? "method" : mode}
         onValueChange={(value) => {
           if (value === "note") {
-            setNoteOpen(true);
+            setOverlay("note");
+            return;
+          }
+          if (value === "method" && doc.library === "papers") {
+            setOverlay("method");
             return;
           }
           if (
@@ -360,7 +386,7 @@ export function EPUBReadingView({
             value !== "translation"
           )
             return;
-          setNoteOpen(false);
+          setOverlay(undefined);
           if (value !== mode) changeMode(value);
         }}
       >
@@ -368,6 +394,9 @@ export function EPUBReadingView({
           <TabsTrigger value="source">仅原文</TabsTrigger>
           <TabsTrigger value="parallel">原文译文</TabsTrigger>
           <TabsTrigger value="translation">仅译文</TabsTrigger>
+          {doc.library === "papers" && (
+            <TabsTrigger value="method">方法解析</TabsTrigger>
+          )}
           <TabsTrigger value="note">笔记</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -376,7 +405,7 @@ export function EPUBReadingView({
   return (
     <div className="epub-reading" data-theme={theme.mode}>
       {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
-      <div className="translation-stage" data-covered={noteOpen} inert={noteOpen}>
+      <div className="translation-stage" data-covered={covered} inert={covered}>
         <TranslationPanes
           mode={mode}
           swapped={swapped}
@@ -619,6 +648,9 @@ export function EPUBReadingView({
         />
       </div>
       {noteOpen && <DocumentNotePage documentId={doc.id} />}
+      {methodOpen && (
+        <MethodAnalysisPage documentId={doc.id} analysis={methodAnalysis} />
+      )}
     </div>
   );
 }

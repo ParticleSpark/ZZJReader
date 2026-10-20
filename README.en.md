@@ -29,6 +29,7 @@ Run from source, or use installers built by CI after a Release is published: DMG
 - **Shared reading interface**: contents and search on the left, the document in the center, and AI chat and notes on the right. Resize or hide the sidebars.
 - **Reading records**: bookmarks, highlights, underlines, notes, reading position restoration, and Markdown annotation export.
 - **AI assistance**: translate or explain selections, reference multiple excerpts, summarize the current EPUB chapter or PDF page, revisit conversation history, and cancel generation.
+- **Method analysis**: analyze a paper's complete text with the selected AI assistance model and keep the result in a dedicated tab. Cancel, retry, or regenerate as needed. Reading settings accept additional instructions; paper-library settings can enable analysis for future imports (off by default).
 - **CLI account integration**: detect local Claude Code / Codex CLI / Kimi Code CLI installations and login status, then use your existing account through the official CLI.
 
 Each format retains reading controls suited to its layout:

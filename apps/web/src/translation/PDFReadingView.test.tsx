@@ -2,6 +2,7 @@
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { api } from "@reader/api";
 import {
   defaultTheme,
   type Document,
@@ -30,6 +31,19 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock("@reader/api", () => ({
   api: {
+    methodAnalysis: vi.fn(async () => ({
+      documentId: "doc",
+      status: "complete",
+      content: "论文方法解析结果",
+      detail: "",
+    })),
+    startMethodAnalysis: vi.fn(async () => ({
+      documentId: "doc",
+      status: "complete",
+      content: "论文方法解析结果",
+      detail: "",
+    })),
+    saveSettings: vi.fn(async () => ({})),
     assistance: vi.fn(async () => undefined),
     translationStream: vi.fn(
       async (
@@ -181,6 +195,46 @@ const processing: Processing = {
   detail: "正在解析 PDF",
   updatedAt: "2026-10-12T00:00:00Z",
 };
+
+it("opens saved paper analysis without starting AI and retains the PDF reader behind it", async () => {
+  await renderView(defaultTheme, [], [], { library: "papers", parsed: true });
+  const reader = host.querySelector(".translation-source");
+  const tabs = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  expect(tabs.map((tab) => tab.textContent)).toEqual([
+    "仅原文",
+    "原文译文",
+    "仅译文",
+    "方法解析",
+    "笔记",
+  ]);
+  expect(api.methodAnalysis).not.toHaveBeenCalled();
+  await act(async () =>
+    tabs.find((tab) => tab.textContent === "方法解析")!.click(),
+  );
+  expect(host.textContent).toContain("论文方法解析结果");
+  expect(api.startMethodAnalysis).not.toHaveBeenCalled();
+  expect(host.querySelector(".translation-stage")?.hasAttribute("inert")).toBe(
+    true,
+  );
+  await click("仅原文");
+  expect(host.querySelector(".translation-source")).toBe(reader);
+  expect(host.querySelector(".translation-stage")?.hasAttribute("inert")).toBe(
+    false,
+  );
+  expect(adapter.destroy).not.toHaveBeenCalled();
+});
+
+it("starts paper analysis from the toolbar while leaving books unchanged", async () => {
+  await renderView(defaultTheme, [], [], { library: "books", parsed: true });
+  expect(host.textContent).not.toContain("方法解析");
+  await renderView(defaultTheme, [], [], { library: "papers", parsed: true });
+  const button = [
+    ...host.querySelectorAll<HTMLButtonElement>('button:not([role="tab"])'),
+  ].find((button) => button.textContent === "方法解析")!;
+  await act(async () => button.click());
+  expect(api.startMethodAnalysis).toHaveBeenCalledExactlyOnceWith("doc", false);
+  expect(host.querySelector('[aria-label="论文方法解析"]')).toBeTruthy();
+});
 
 it("replaces the parsing notice with the actual failure and retry guidance", async () => {
   await renderView(defaultTheme, [], [], { processing });

@@ -66,6 +66,7 @@ import { toast } from "sonner";
 // Checks run automatically for this many API models; the rest on demand.
 const autoAPIChecks = 12;
 const translationGlossaryLimit = 4000;
+const methodAnalysisPromptLimit = 4000;
 
 function TranslationGlossaryField({
   value,
@@ -717,6 +718,24 @@ export function Settings({
                 }
               />
             </section>
+            <section className="mb-6">
+              <h3 className="mb-1 text-sm font-medium">方法解析提示词</h3>
+              <p className="mb-2 text-xs text-muted-foreground">
+                补充整篇论文的方法解析要求，留空时使用内置提示词。
+              </p>
+              <Textarea
+                aria-label="方法解析提示词"
+                value={theme.methodAnalysisPrompt ?? ""}
+                maxLength={methodAnalysisPromptLimit}
+                rows={6}
+                placeholder={
+                  "例如：\n重点解释核心公式和伪代码，并说明每一步的作用。\n结合我的研究领域，举例说明方法的适用场景。"
+                }
+                onChange={(event) =>
+                  setTheme({ methodAnalysisPrompt: event.target.value })
+                }
+              />
+            </section>
             <section>
               <h3 className="mb-3 text-sm font-medium">高亮颜色</h3>
               <HighlightColorsEditor />
@@ -770,6 +789,21 @@ export function Settings({
                   导入后自动翻译
                   <span className="block text-xs text-muted-foreground">
                     开启后，新导入的论文会自动翻译全文。
+                  </span>
+                </span>
+              </label>
+              <label className="mt-4 flex items-start gap-2 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={theme.autoAnalyzeMethods === true}
+                  onCheckedChange={(checked) =>
+                    setTheme({ autoAnalyzeMethods: !!checked })
+                  }
+                />
+                <span>
+                  导入后自动进行方法解析
+                  <span className="block text-xs text-muted-foreground">
+                    只对之后导入的论文生效，使用 AI 助读当前模型。
                   </span>
                 </span>
               </label>

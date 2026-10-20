@@ -52,6 +52,11 @@ import "./translation.css";
 
 import { AssistanceControls } from "./AssistanceControls";
 import { DocumentNotePage } from "../DocumentNotePage";
+import {
+  MethodAnalysisButton,
+  MethodAnalysisPage,
+} from "../method-analysis/MethodAnalysisPage";
+import { useMethodAnalysis } from "../method-analysis/useMethodAnalysis";
 import { chapterRange } from "./chapters";
 import { searchPDFBlocks } from "./pdf-search";
 import { PDFTranslationStatus } from "./PDFTranslationStatus";
@@ -87,7 +92,15 @@ export function PDFReadingView({
       doc.library === "papers" ? "parallel" : "source",
     ),
     [swapped, setSwapped] = useState(false);
-  const [noteOpen, setNoteOpen] = useState(false);
+  const [overlay, setOverlay] = useState<"note" | "method">();
+  const noteOpen = overlay === "note";
+  const methodOpen = overlay === "method" && doc.library === "papers";
+  const covered = noteOpen || methodOpen;
+  const methodAnalysis = useMethodAnalysis(
+    doc.library === "papers" ? doc.id : undefined,
+    methodOpen,
+  );
+  useEffect(() => setOverlay(undefined), [doc.id]);
   const { translations, error } = useTranslations(doc.id);
   const [popup, setPopup] = useState<{ block: PDFBlock; rect: DOMRect }>(),
     [linked, setLinked] = useState<Record<string, number[]>>();
@@ -833,7 +846,10 @@ export function PDFReadingView({
   };
   const activePopup = popup && byId.get(popup.block.id);
   const toolbar = (
-    <div className="translation-toolbar">
+    <div
+      className="translation-toolbar"
+      data-method-analysis-toolbar={doc.library === "papers" || undefined}
+    >
       <AssistanceControls
         documentId={doc.id}
         processing={processing}
@@ -849,11 +865,21 @@ export function PDFReadingView({
           );
         }}
       />
+      {doc.library === "papers" && (
+        <MethodAnalysisButton
+          analysis={methodAnalysis}
+          onOpen={() => setOverlay("method")}
+        />
+      )}
       <Tabs
-        value={noteOpen ? "note" : mode}
+        value={noteOpen ? "note" : methodOpen ? "method" : mode}
         onValueChange={(value) => {
           if (value === "note") {
-            setNoteOpen(true);
+            setOverlay("note");
+            return;
+          }
+          if (value === "method" && doc.library === "papers") {
+            setOverlay("method");
             return;
           }
           if (
@@ -862,7 +888,7 @@ export function PDFReadingView({
             value !== "translation"
           )
             return;
-          setNoteOpen(false);
+          setOverlay(undefined);
           if (value !== mode) changeMode(value);
         }}
       >
@@ -870,6 +896,9 @@ export function PDFReadingView({
           <TabsTrigger value="source">仅原文</TabsTrigger>
           <TabsTrigger value="parallel">原文译文</TabsTrigger>
           <TabsTrigger value="translation">仅译文</TabsTrigger>
+          {doc.library === "papers" && (
+            <TabsTrigger value="method">方法解析</TabsTrigger>
+          )}
           <TabsTrigger value="note">笔记</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -878,7 +907,7 @@ export function PDFReadingView({
   return (
     <div className="pdf-reading" ref={root} data-theme={theme.mode}>
       {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
-      <div className="translation-stage" data-covered={noteOpen} inert={noteOpen}>
+      <div className="translation-stage" data-covered={covered} inert={covered}>
         {mode === "translation" && (
           <div className="pdf-reading-controls">
             <div className="pdf-page-navigation">{pageNavigation}</div>
@@ -1213,6 +1242,9 @@ export function PDFReadingView({
         </Popover>
       </div>
       {noteOpen && <DocumentNotePage documentId={doc.id} />}
+      {methodOpen && (
+        <MethodAnalysisPage documentId={doc.id} analysis={methodAnalysis} />
+      )}
     </div>
   );
 }
