@@ -1,3 +1,5 @@
+import { relocatedScriptRanges } from "./pdf-sentence-script-matching";
+
 // Inputs use the same whitespace-free, lower-case text as PDF selection offsets.
 // OCR sometimes moves mathematical subscripts to the end of a line. Match the
 // complete prose in that case, retaining the original PDF offsets for painting.
@@ -37,6 +39,7 @@ export function sentenceTextRanges(
   block: string,
   sources: string[],
   sourceOffset = 0,
+  scripts: Array<{ start: number; end: number }> = [],
 ): Array<{ start: number; end: number }> {
   const paragraphStart = uniqueIndex(text, block);
   const pdfProse = prose(text),
@@ -99,6 +102,16 @@ export function sentenceTextRanges(
     // unique full-prose match. This never expands an unmatched sentence.
     cursor = end;
     matches.push({ start, end });
+  }
+  if (matches.length < sources.filter(Boolean).length && scripts.length) {
+    const relocated = relocatedScriptRanges(
+      text,
+      block,
+      sources,
+      sourceOffset,
+      scripts,
+    );
+    if (relocated && relocated.length > matches.length) return relocated;
   }
   return matches;
 }

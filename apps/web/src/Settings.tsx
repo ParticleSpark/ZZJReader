@@ -699,9 +699,9 @@ export function Settings({
                   }
                 />
                 <span>
-                  译文原文划线关联
+                  原文与译文联动高亮
                   <span className="block text-xs text-muted-foreground">
-                    悬停与批注同步到另一侧对应的完整句子
+                    悬停、选择或添加批注时，同步标记另一侧的对应句子；关闭后仅标记当前一侧
                   </span>
                 </span>
               </label>

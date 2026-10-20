@@ -5,6 +5,8 @@ import type { PDFViewer } from "pdfjs-dist/web/pdf_viewer.mjs";
 import type { PDFBlock, TranslationBlock } from "@reader/core";
 import { translatedSelection } from "../translation/selection";
 import oze from "./fixtures/oze-sentence-alignment.json";
+import gepa from "./fixtures/gepa-sentence-alignment.json";
+import { sourcePassage } from "../translation/sentence-links";
 vi.mock("pdfjs-dist", () => ({
   Util: { transform: (_a: number[], b: number[]) => b },
 }));
@@ -274,4 +276,80 @@ it("returns text-node fragments so sentence hover never selects PDF line breaks"
     expect(range.startContainer.nodeType).toBe(Node.TEXT_NODE);
     expect(range.endContainer).toBe(range.startContainer);
   }
+});
+
+function gepaTextLayer(
+  change: (text: string, height: number) => { text: string; height: number } = (
+    text,
+    height,
+  ) => ({ text, height }),
+) {
+  currentBlock = gepa.block;
+  page.querySelector(".textLayer")!.replaceChildren(
+    ...gepa.runs.map(({ text, bounds: b }) => {
+      const value = change(text, b.height);
+      const span = document.createElement("span");
+      span.textContent = value.text;
+      span.getBoundingClientRect = () =>
+        new DOMRect(
+          b.x * 1000,
+          b.y * 1000,
+          b.width * 1000,
+          value.height * 1000,
+        );
+      return span;
+    }),
+  );
+}
+
+const gepaTranslation: TranslationBlock = {
+  blockId: gepa.block.id,
+  sourceHash: "gepa",
+  status: "complete",
+  sentences: gepa.sentences,
+};
+
+it("finds each GEPA sentence independently despite Greek and ASCII subscripts moving across sentence boundaries", () => {
+  gepaTextLayer();
+  const expected = [
+    gepa.sentences[0].anchor.replace("Π that maximize Φ", "Π Φ that maximize"),
+    gepa.sentences[1].anchor.replace("Θ ⟩", "Θ f rozen ⟩ Φ"),
+    gepa.sentences[2].source,
+    gepa.sentences[3].anchor,
+    gepa.sentences[4].anchor,
+  ];
+  const compact = (value: string) => value.replace(/\s/g, "");
+  for (let index = 0; index < expected.length; index++) {
+    const ranges = nav.sentenceRanges([sourcePassage(gepaTranslation, index)]);
+    expect(ranges.length, `sentence ${index + 1}`).toBeGreaterThan(0);
+    expect(compact(ranges.map((r) => r.toString()).join(""))).toBe(
+      compact(expected[index]),
+    );
+    for (const range of ranges)
+      expect(range.startContainer).toBe(range.endContainer);
+  }
+});
+
+it("does not treat ordinary font sizes, neighboring text or changed variables as displaced subscripts", () => {
+  const first = sourcePassage(gepaTranslation, 0);
+  gepaTextLayer((text, height) => ({
+    text,
+    height: height < 0.01 ? 0.012579040404040405 : height,
+  }));
+  expect(nav.sentenceRanges([first])).toEqual([]);
+
+  gepaTextLayer((text, height) => ({
+    text: text === "Φ" && height < 0.01 ? "Ψ" : text,
+    height,
+  }));
+  expect(nav.sentenceRanges([first])).toEqual([]);
+
+  gepaTextLayer();
+  page.querySelectorAll("span").forEach((span) => {
+    const rect = span.getBoundingClientRect();
+    if (rect.height < 10)
+      span.getBoundingClientRect = () =>
+        new DOMRect(950, rect.y, rect.width, rect.height);
+  });
+  expect(nav.sentenceRanges([first])).toEqual([]);
 });

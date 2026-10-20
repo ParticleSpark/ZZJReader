@@ -453,6 +453,13 @@ export class PDFReadingNavigation {
     if (!page.width) return [];
     const nodes: Array<{ node: Text; offset: number; group: number }> = [],
       chars: string[] = [];
+    const runs: Array<{
+      start: number;
+      end: number;
+      rect: DOMRect;
+      group: number;
+      text: string;
+    }> = [];
     const walker = document.createTreeWalker(
       node.querySelector(".textLayer") ?? document.createElement("div"),
       NodeFilter.SHOW_TEXT,
@@ -483,22 +490,57 @@ export class PDFReadingNavigation {
         group++;
         continue;
       }
+      const start = chars.length;
       for (let i = 0; i < (text.textContent?.length ?? 0); i++) {
         const c = text.textContent![i];
         if (/[\s\u00ad]/.test(c)) continue;
         chars.push(c.toLowerCase());
         nodes.push({ node: text as Text, offset: i, group });
       }
+      if (chars.length > start)
+        runs.push({
+          start,
+          end: chars.length,
+          rect: r,
+          group,
+          text: chars.slice(start).join(""),
+        });
     }
     const joined = chars.join(""),
       ranges: Range[] = [];
     const normalize = (value: string) =>
       value.toLowerCase().replace(/[\s\u00ad]/g, "");
+    const scripts = runs.filter((run, index) => {
+      const base = runs[index - 1];
+      if (
+        !base ||
+        base.group !== run.group ||
+        !/^[\p{L}\p{N}]{1,16}$/u.test(run.text) ||
+        !/^[\p{L}\p{N}()[\]{}⟨⟩]{1,8}$/u.test(base.text)
+      )
+        return false;
+      const r = run.rect,
+        b = base.rect;
+      const ratio = r.height / b.height;
+      // A smaller run must sit immediately beside a larger inline glyph, with
+      // its baseline shifted. A small footnote or a neighboring column is not
+      // evidence that ordinary prose may be discarded.
+      return (
+        ratio >= 0.45 &&
+        ratio <= 0.85 &&
+        r.left >= b.right - b.height * 0.15 &&
+        r.left <= b.right + b.height * 0.75 &&
+        ((r.top > b.top + b.height * 0.15 && r.top < b.top + b.height * 0.75) ||
+          (r.top < b.top - b.height * 0.15 &&
+            r.bottom > b.top + b.height * 0.1))
+      );
+    });
     for (const { start: i, end: cursor } of sentenceTextRanges(
       joined,
       normalize(block.text),
       sources.map(normalize),
       startOffset,
+      scripts,
     )) {
       // PDF DOM order can interleave columns. Never let a Range bridge text
       // nodes that were excluded from this paragraph during matching.

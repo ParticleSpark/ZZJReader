@@ -1,0 +1,313 @@
+{
+  "block": {
+    "id": "p4-b13",
+    "page": 4,
+    "label": "text",
+    "bounds": {
+      "x": 0.144287109375,
+      "y": 0.7261962890625,
+      "width": 0.70947265625,
+      "height": 0.098388671875
+    },
+    "text": "Genetic Optimization Loop: Given an AI system Φ , the goal is to identify parameters Π that maximize Φ task performance. GEPA begins with a candidate pool P containing only the base system, where each can- didate is a concrete instantiation of ⟨ Π , Θ ⟩ . It then enters an optimization loop, repeatedly proposing f rozen Φ new candidates until the evaluation budget is exhausted. Candidates are derived from existing ones via re- flective mutation or crossover , guided by feedback from rollouts, with each inheriting learning signals from its parents and its own rollout so that GEPA accumulates knowledge along the genetic tree. In each iteration, GEPA (i) selects promising candidates, (ii) proposes and evaluates a variant on a minibatch of tasks, and"
+  },
+  "sentences": [
+    {
+      "source": "Genetic Optimization Loop: Given an AI system Φ , the goal is to identify parameters Π that maximize Φ task performance.",
+      "target": "遗传优化循环：给定一个 AI 系统 $\\Phi$，目标是找出使 $\\Phi$ 的任务性能最大化的参数 $\\Pi_\\Phi$。",
+      "anchor": "Genetic Optimization Loop: Given an AI system Φ , the goal is to identify parameters Π that maximize Φ task performance."
+    },
+    {
+      "source": "GEPA begins with a candidate pool P containing only the base system, where each candidate is a concrete instantiation of ⟨ Π , Θ ⟩ .",
+      "target": "GEPA 从仅包含基础系统的候选池 $P$ 开始，其中每个候选者都是 $\\langle \\Pi_\\Phi, \\Theta_{\\mathrm{frozen}} \\rangle$ 的一个具体实例。",
+      "anchor": "GEPA begins with a candidate pool P containing only the base system, where each can- didate is a concrete instantiation of ⟨ Π , Θ ⟩ ."
+    },
+    {
+      "source": "It then enters an optimization loop, repeatedly proposing new candidates until the evaluation budget is exhausted.",
+      "target": "随后，它进入优化循环，反复提出新候选者，直至评估预算耗尽。",
+      "anchor": "It then enters an optimization loop, repeatedly proposing f rozen Φ new candidates until the evaluation budget is exhausted."
+    },
+    {
+      "source": "Candidates are derived from existing ones via reflective mutation or crossover , guided by feedback from rollouts, with each inheriting learning signals from its parents and its own rollout so that GEPA accumulates knowledge along the genetic tree.",
+      "target": "候选者通过反思式变异或交叉从现有候选者衍生而来，并由推演反馈加以引导；每个候选者都会继承来自其亲本及其自身推演的学习信号，从而使 GEPA 沿遗传树积累知识。",
+      "anchor": "Candidates are derived from existing ones via re- flective mutation or crossover , guided by feedback from rollouts, with each inheriting learning signals from its parents and its own rollout so that GEPA accumulates knowledge along the genetic tree."
+    },
+    {
+      "source": "In each iteration, GEPA (i) selects promising candidates, (ii) proposes and evaluates a variant on a minibatch of tasks, and",
+      "target": "在每次迭代中，GEPA 会：(i) 选择有潜力的候选者；(ii) 在一个任务小批次上提出并评估一个变体；以及",
+      "anchor": "In each iteration, GEPA (i) selects promising candidates, (ii) proposes and evaluates a variant on a minibatch of tasks, and"
+    }
+  ],
+  "runs": [
+    {
+      "text": "Genetic Optimization Loop:",
+      "bounds": {
+        "x": 0.15000163398692767,
+        "y": 0.7282964722222217,
+        "width": 0.19581718202614384,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "Given an AI system",
+      "bounds": {
+        "x": 0.3568395352941174,
+        "y": 0.7284474207070701,
+        "width": 0.12980681764705884,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "Φ",
+      "bounds": {
+        "x": 0.4909439450980388,
+        "y": 0.7282461560606056,
+        "width": 0.011756519150326798,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": ", the goal is to identify parameters",
+      "bounds": {
+        "x": 0.5027004642483657,
+        "y": 0.7284474207070701,
+        "width": 0.22345851339869283,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "Π",
+      "bounds": {
+        "x": 0.7304565698039205,
+        "y": 0.7282461560606056,
+        "width": 0.012209068627450982,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "Φ",
+      "bounds": {
+        "x": 0.7426650326797382,
+        "y": 0.732751493434343,
+        "width": 0.009292702450980392,
+        "height": 0.00880530303030303
+      }
+    },
+    {
+      "text": "that maximize",
+      "bounds": {
+        "x": 0.7570751633986924,
+        "y": 0.7284474207070701,
+        "width": 0.09291915163398691,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "task performance. GEPA begins with a",
+      "bounds": {
+        "x": 0.1500016339869277,
+        "y": 0.7422845419191912,
+        "width": 0.2539974637254903,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "candidate pool",
+      "bounds": {
+        "x": 0.40816645980392147,
+        "y": 0.7423977532828278,
+        "width": 0.09731441633986924,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "P",
+      "bounds": {
+        "x": 0.5096645169934635,
+        "y": 0.7413788510101005,
+        "width": 0.011323504183006537,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "containing only the base system, where each",
+      "bounds": {
+        "x": 0.5264902414379079,
+        "y": 0.7422845419191912,
+        "width": 0.29041304575163396,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "can-",
+      "bounds": {
+        "x": 0.8210706492810441,
+        "y": 0.7423977532828278,
+        "width": 0.02892735326797386,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "didate",
+      "bounds": {
+        "x": 0.1500016339869277,
+        "y": 0.756234874494949,
+        "width": 0.0406968954248366,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "is a concrete instantiation of",
+      "bounds": {
+        "x": 0.1941984624183003,
+        "y": 0.7561216631313126,
+        "width": 0.18128025098039224,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "⟨",
+      "bounds": {
+        "x": 0.3789786464052286,
+        "y": 0.7552159722222217,
+        "width": 0.006330809052287581,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "Π",
+      "bounds": {
+        "x": 0.3853094554575162,
+        "y": 0.755920398484848,
+        "width": 0.012209068627450982,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": ",",
+      "bounds": {
+        "x": 0.3975185240849672,
+        "y": 0.755920398484848,
+        "width": 0.004522239019607843,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "Θ",
+      "bounds": {
+        "x": 0.40474303696078423,
+        "y": 0.755920398484848,
+        "width": 0.012661618104575162,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "f rozen",
+      "bounds": {
+        "x": 0.41740686274509764,
+        "y": 0.7604257358585853,
+        "width": 0.04135736882352933,
+        "height": 0.00880530303030303
+      }
+    },
+    {
+      "text": "⟩",
+      "bounds": {
+        "x": 0.4595767973856205,
+        "y": 0.7552159722222217,
+        "width": 0.006330809052287581,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "Φ",
+      "bounds": {
+        "x": 0.4659068627450976,
+        "y": 0.7604257358585853,
+        "width": 0.009292702450980392,
+        "height": 0.00880530303030303
+      }
+    },
+    {
+      "text": ". It then enters an optimization loop, repeatedly proposing",
+      "bounds": {
+        "x": 0.47601307189542447,
+        "y": 0.7561216631313126,
+        "width": 0.37398819019607843,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "new candidates until the evaluation budget is exhausted. Candidates are derived from existing ones via",
+      "bounds": {
+        "x": 0.1500016339869277,
+        "y": 0.7699587843434337,
+        "width": 0.6769196009803917,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "re-",
+      "bounds": {
+        "x": 0.83162579607843,
+        "y": 0.7700719957070702,
+        "width": 0.01837871797385618,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "flective mutation",
+      "bounds": {
+        "x": 0.1500016339869277,
+        "y": 0.7839091169191914,
+        "width": 0.10818862679738561,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "or",
+      "bounds": {
+        "x": 0.26239018039215656,
+        "y": 0.783795905555555,
+        "width": 0.013560205555555557,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "crossover",
+      "bounds": {
+        "x": 0.28015030555555526,
+        "y": 0.7839091169191914,
+        "width": 0.06239648006535948,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": ", guided by feedback from rollouts, with each inheriting learning signals from",
+      "bounds": {
+        "x": 0.34254678562091484,
+        "y": 0.783795905555555,
+        "width": 0.5074577284313727,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "its parents and its own rollout so that GEPA accumulates knowledge along the genetic tree. In each iteration,",
+      "bounds": {
+        "x": 0.1500016339869277,
+        "y": 0.7976330267676761,
+        "width": 0.700002880065359,
+        "height": 0.012579040404040405
+      }
+    },
+    {
+      "text": "GEPA (i) selects promising candidates, (ii) proposes and evaluates a variant on a minibatch of tasks, and",
+      "bounds": {
+        "x": 0.1500016339869277,
+        "y": 0.8114688853535348,
+        "width": 0.7000028800653588,
+        "height": 0.012579040404040405
+      }
+    }
+  ]
+}
